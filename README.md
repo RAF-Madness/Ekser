@@ -1,6 +1,6 @@
 # Kids2022ProjAndrejGasicRn0218
 
-**TODO: Add description**
+Distributed system for drawing fractals written in Elixir.
 
 ## Installation
 

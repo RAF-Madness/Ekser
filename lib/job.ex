@@ -7,7 +7,7 @@
 # ○ A - skup N tačaka. (niz od N parova int-ova
 
 defmodule FractalJob do
-  defstruct [:name, :count, :distance, :width, :height, points: []]
+  defstruct [:name, :count, :distance, :resolution, points: []]
 
   defguardp is_point(term)
             when is_tuple(term) and tuple_size(term) == 2 and
@@ -48,8 +48,7 @@ defmodule FractalJob do
 
   @spec set_canvas_resolution(struct(), tuple()) :: struct()
   defp set_canvas_resolution(fractal_job, resolution) when is_point(resolution) do
-    {width, height} = resolution
-    %__MODULE__{fractal_job | width: width, height: height}
+    %__MODULE__{fractal_job | resolution: resolution}
   end
 
   defp set_canvas_resolution(_, _) do
@@ -75,63 +74,100 @@ defmodule FractalJob do
     exit("Points must be a set of N positive integer pairs.")
   end
 
-  @spec parse_point(String.t(), String.t(), String.t()) :: tuple()
-  defp parse_point(string, separator, message)
-       when is_binary(string) and is_binary(separator) and is_binary(message) do
+  @spec parse_point(String.t(), String.t()) :: tuple()
+  defp parse_point(string, separator)
+       when is_binary(string) and is_binary(separator) do
     with [string_x, string_y] <- String.split(string, separator),
          {{x, _}, {y, _}} <- {Integer.parse(string_x), Integer.parse(string_y)} do
       {x, y}
     else
-      _ -> exit(message)
+      _ -> :error
     end
   end
 
-  @spec parse_count(struct(), String.t()) :: struct()
-  defp parse_count(fractal_job, string) when is_binary(string) do
+  @spec parse_count(String.t()) :: pos_integer()
+  defp parse_count(string) when is_binary(string) do
     parseResult = Integer.parse(string)
 
     case parseResult do
-      {n, _} -> set_point_count(fractal_job, n)
+      {n, _} -> n
       _ -> exit("Failed to parse number of points.")
     end
   end
 
-  @spec parse_distance(struct(), String.t()) :: struct()
-  defp parse_distance(fractal_job, string) when is_binary(string) do
+  @spec parse_distance(String.t()) :: float()
+  defp parse_distance(string) when is_binary(string) do
     parseResult = Float.parse(string)
 
     case parseResult do
-      {p, _} -> set_point_distance(fractal_job, p)
+      {p, _} -> p
       _ -> exit("Failed to parse distance between points.")
     end
   end
 
-  @spec parse_resolution(struct(), String.t()) :: struct()
-  defp parse_resolution(fractal_job, string) when is_binary(string) do
-    parse_point(string, "x", "Failed to parse canvas resolution.")
-    |> (&set_canvas_resolution(fractal_job, &1)).()
+  @spec parse_resolution(String.t()) :: tuple()
+  defp parse_resolution(string) when is_binary(string) do
+    parseResult = parse_point(string, "x")
+
+    case parseResult do
+      {x, y} -> {x, y}
+      _ -> exit("Failed to parse canvas resolution.")
+    end
   end
 
-  @spec parse_points(struct(), String.t()) :: struct()
-  defp parse_points(fractal_job, string) do
+  @spec parse_points(String.t()) :: nonempty_list(tuple())
+  defp parse_points(string) do
     string_pairs = String.split(string, "|")
 
-    pairs =
-      for string_pair <- string_pairs,
-          do: parse_point(string_pair, ",", "Failed to parse points.")
+    parse_function = fn string ->
+      parseResult = parse_point(string, ",")
 
-    set_points(fractal_job, pairs)
+      case parseResult do
+        {x, y} -> {x, y}
+        _ -> exit("Failed to parse points.")
+      end
+    end
+
+    for string_pair <- string_pairs, do: parse_function.(string_pair)
+  end
+
+  @spec parse_split_line(nonempty_list(String.t())) :: tuple()
+  defp parse_split_line([name, count, distance, resolution, points]) do
+    {
+      name,
+      parse_count(count),
+      parse_distance(distance),
+      parse_resolution(resolution),
+      parse_points(points)
+    }
+  end
+
+  defp parse_split_line(_) do
+    exit("Couldn't parse job line.")
   end
 
   @spec create_from_line(String.t()) :: struct()
   def create_from_line(line) do
-    [name, count, distance, resolution, points] = String.split(line)
+    {name, count, distance, resolution, points} =
+      String.split(line)
+      |> parse_split_line()
 
     new()
     |> set_name(name)
-    |> parse_count(count)
-    |> parse_distance(distance)
-    |> parse_resolution(resolution)
-    |> parse_points(points)
+    |> set_point_count(count)
+    |> set_point_distance(distance)
+    |> set_canvas_resolution(resolution)
+    |> set_points(points)
   end
 end
+
+# defp set_field(fractal_job, value) do
+# case value do
+# {:name, name} -> set_name(fractal_job, name)
+# {:count, count} -> set_point_count(fractal_job, count)
+# {:distance, distance} -> set_point_distance(fractal_job, distance)
+# {:resolution, resolution} -> set_canvas_resolution(fractal_job, resolution)
+# {:points, points} -> set_points(fractal_job, points)
+# _ -> exit("Failed to set field.")
+# end
+# end
