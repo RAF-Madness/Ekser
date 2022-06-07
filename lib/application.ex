@@ -1,10 +1,8 @@
 defmodule Ekser do
   use Application
 
+  @impl true
   def start(_type, _args) do
-    children = []
-
-    opts = [strategy: :one_for_one]
-    Supervisor.start_link(children, opts)
+    Ekser.Supervisor.start_link(name: Ekser.Supervisor)
   end
 end

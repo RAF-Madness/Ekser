@@ -6,7 +6,7 @@
 # ○ W, H - dimenzija površine na kojoj se računaju tačke. (dva int-a)
 # ○ A - skup N tačaka. (niz od N parova int-ova
 
-defmodule Job do
+defmodule Ekser.Job do
   defstruct [:name, :count, :distance, :resolution, points: []]
 
   defguard is_job(term) when is_struct(term, __MODULE__)
@@ -28,7 +28,7 @@ defmodule Job do
 
   @spec create_from_map(map) ::
           {:ok,
-           %Job{
+           %__MODULE__{
              count: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10,
              distance: float,
              name: binary,
@@ -40,34 +40,17 @@ defmodule Job do
     count = map["pointCount"]
     distance = map["p"]
     resolution = {map["width"], map["height"]}
-    points = map["mainPoints"]
+
+    points =
+      map["mainPoints"]
+      |> Enum.map(fn element -> {element["x"], element["y"]} end)
 
     create(name, count, distance, resolution, points)
   end
 
   @spec find_job(list(struct()), String.t()) :: any()
-  def find_job(job_list, job_name) when is_list(job_list) and is_binary(job_name) do
-    Enum.find(job_list, fn element -> element.name === job_name end)
-  end
-
-  @spec duplicate_jobs?(list(struct())) :: boolean()
-  def duplicate_jobs?(job_list) when is_list(job_list) do
-    unique =
-      Enum.reduce_while(job_list, [], fn element, acc ->
-        case element.name in acc do
-          true -> {:cont, [element.name | acc]}
-          false -> {:halt, acc}
-        end
-      end)
-
-    length(unique) === length(job_list)
-  end
-
-  @spec job_exists?(list(struct()), struct()) :: boolean()
-  def job_exists?(job_list, job) when is_list(job_list) and is_struct(job, __MODULE__) do
-    Enum.any?(job_list, fn element ->
-      element.name === job.name
-    end)
+  def find_job(jobs, job_name) when is_list(jobs) and is_binary(job_name) do
+    Enum.find(jobs, fn element -> element.name === job_name end)
   end
 
   defguardp is_count(term) when is_integer(term) and term >= 3 and term <= 10
@@ -88,7 +71,7 @@ defmodule Job do
   end
 
   defp set_point_count(_, _) do
-    {:error, "Number of points must be a whole number between 3 and 10 (inclusive)."}
+    {:error, "Number of points must be an integer between 3 and 10 (inclusive)."}
   end
 
   defp set_point_distance(job, p) when is_job(job) and is_distance(p) do
@@ -105,7 +88,7 @@ defmodule Job do
   end
 
   defp set_canvas_resolution(_, _) do
-    {:error, "Canvas width and height must be positive whole numbers."}
+    {:error, "Canvas width and height must be positive integers."}
   end
 
   defp set_main_points(%__MODULE__{count: n} = job, points)
@@ -113,7 +96,7 @@ defmodule Job do
     if Enum.all?(points, fn element -> is_point(element) end) do
       {:ok, %__MODULE__{job | points: points}}
     else
-      {:error, "Each point in the set of points must consist of 2 positive whole numbers."}
+      {:error, "Each point in the set of points must consist of 2 positive integers."}
     end
   end
 
@@ -170,9 +153,8 @@ defmodule Job do
   end
 
   defp create(name, count, distance, resolution, points) do
-    base = new(name)
-
-    with {:ok, counted} <- set_point_count(base, count),
+    with base <- new(name),
+         {:ok, counted} <- set_point_count(base, count),
          {:ok, distanced} <- set_point_distance(counted, distance),
          {:ok, resolutioned} <- set_canvas_resolution(distanced, resolution),
          {:ok, pointed} <- set_main_points(resolutioned, points) do

@@ -1,5 +1,23 @@
-defmodule TCPReceiver do
-  def init(port) do
+defmodule Ekser.TCPReceiver do
+  require Ekser.Util
+  use Task
+
+  def child_spec(port) when Ekser.Util.is_tcp_port(port) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, [port]},
+      restart: :transient,
+      significant: true,
+      shutdown: 5000,
+      type: :worker
+    }
+  end
+
+  def start_link(port) when Ekser.Util.is_tcp_port(port) do
+    Task.start_link(__MODULE__, :run, [port])
+  end
+
+  def run(port) when Ekser.Util.is_tcp_port(port) do
     {:ok, socket} = :gen_tcp.listen(port, [:binary, packet: :raw, active: false, reuseaddr: true])
     listen(socket)
   end
