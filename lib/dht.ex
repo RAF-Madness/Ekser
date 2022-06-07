@@ -1,5 +1,4 @@
 defmodule Ekser.DHT do
-  require Ekser.Util
   require Ekser.Node
   use Agent
 
@@ -15,7 +14,7 @@ defmodule Ekser.DHT do
     Agent.start_link(fn -> new(bootstrap) end)
   end
 
-  defp new(bootstrap) when Ekser.Util.is_tcp_address(bootstrap) do
+  defp new(bootstrap) when Ekser.Node.is_node(bootstrap) do
     %__MODULE__{bootstrap: bootstrap}
   end
 end

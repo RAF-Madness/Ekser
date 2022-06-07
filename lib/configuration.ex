@@ -6,6 +6,7 @@
 
 defmodule Ekser.Config do
   require Ekser.Util
+  require Ekser.Node
   require Ekser.Job
 
   defstruct [
@@ -47,12 +48,12 @@ defmodule Ekser.Config do
   end
 
   defp set_bootstrap(config, bootstrap)
-       when is_config(config) and Ekser.Util.is_tcp_address(bootstrap) do
+       when is_config(config) and Ekser.Node.is_node(bootstrap) do
     {:ok, %__MODULE__{config | bootstrap: bootstrap}}
   end
 
   defp set_bootstrap(_, _) do
-    {:error, "Bootstrap must be an IP address and a port."}
+    {:error, "Bootstrap must be in the form of a node (tuple with id, IP and port)."}
   end
 
   defp set_watchdog(config, timeout) when is_config(config) and is_timeout(timeout) do
@@ -91,8 +92,8 @@ defmodule Ekser.Config do
     watchdog_timeout = map["weakLimit"]
     failure_timeout = map["strongLimit"]
 
-    with {:ok, bootstrap} <-
-           Ekser.Util.to_address(map["bootstrapIpAddress"], map["bootstrapPort"]),
+    with {:ok, ip} <- Ekser.Util.to_ip(map["bootstrapIpAddress"]),
+         {:ok, bootstrap} <- Ekser.Node.create(-1, ip, map["bootstrapPort"]),
          {:ok, jobs} <- map["jobs"] |> to_jobs() do
       create(port, bootstrap, watchdog_timeout, failure_timeout, jobs)
     else

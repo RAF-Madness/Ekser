@@ -40,7 +40,7 @@ defmodule Ekser.Node do
     {:error, "ID must be an integer."}
   end
 
-  defp set_ip(node, ip) when is_node(node) and is_binary(ip) do
+  defp set_ip(node, ip) when is_node(node) and Ekser.Util.is_tcp_ip(ip) do
     {:ok, %__MODULE__{node | ip: ip}}
   end
 
