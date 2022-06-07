@@ -2,7 +2,7 @@ defmodule Ekser.TCPReceiver do
   require Ekser.Util
   use Task
 
-  def child_spec(port) when Ekser.Util.is_tcp_port(port) do
+  def child_spec([port]) when Ekser.Util.is_tcp_port(port) do
     %{
       id: __MODULE__,
       start: {__MODULE__, :start_link, [port]},
@@ -13,7 +13,7 @@ defmodule Ekser.TCPReceiver do
     }
   end
 
-  def start_link(port) when Ekser.Util.is_tcp_port(port) do
+  def start_link([port]) when Ekser.Util.is_tcp_port(port) do
     Task.start_link(__MODULE__, :run, [port])
   end
 
@@ -24,22 +24,20 @@ defmodule Ekser.TCPReceiver do
 
   defp listen(socket) do
     {:ok, client} = :gen_tcp.accept(socket)
-    serve(client)
+    {:ok, pid} = Task.Supervisor.start_child(Ekser.Receiver.Supervisor, fn -> serve(client) end)
+    :ok = :gen_tcp.controlling_process(client, pid)
     listen(socket)
   end
 
   defp serve(socket) do
     socket
     |> read()
-    |> deserialize_json()
+    |> Jason.decode!()
+    |> Ekser.Message.create_from_json()
   end
 
   defp read(socket) do
     {:ok, data} = :gen_tcp.recv(socket, 0)
     data
-  end
-
-  defp deserialize_json(data) do
-    Jason.decode!(data)
   end
 end

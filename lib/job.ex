@@ -7,51 +7,11 @@
 # ○ A - skup N tačaka. (niz od N parova int-ova
 
 defmodule Ekser.Job do
+  @behaviour Ekser.Serializable
+
   defstruct [:name, :count, :distance, :resolution, points: []]
 
   defguard is_job(term) when is_struct(term, __MODULE__)
-
-  @spec create_from_line(String.t()) :: tuple()
-  def create_from_line(line) when is_binary(line) do
-    with [name, count_string, distance_string, resolution_string, points_string] <-
-           String.split(line),
-         {:ok, count} <- parse_count(count_string),
-         {:ok, distance} <- parse_distance(distance_string),
-         {:ok, resolution} <- parse_resolution(resolution_string),
-         {:ok, points} <- parse_points(points_string) do
-      create(name, count, distance, resolution, points)
-    else
-      {:error, message} -> {:error, message}
-      _ -> {:error, "Failed to parse job information."}
-    end
-  end
-
-  @spec create_from_map(map) ::
-          {:ok,
-           %__MODULE__{
-             count: 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10,
-             distance: float,
-             name: binary,
-             points: list,
-             resolution: {any, any}
-           }}
-  def create_from_map(map) when is_map(map) do
-    name = map["name"]
-    count = map["pointCount"]
-    distance = map["p"]
-    resolution = {map["width"], map["height"]}
-
-    points =
-      map["mainPoints"]
-      |> Enum.map(fn element -> {element["x"], element["y"]} end)
-
-    create(name, count, distance, resolution, points)
-  end
-
-  @spec find_job(list(struct()), String.t()) :: any()
-  def find_job(jobs, job_name) when is_list(jobs) and is_binary(job_name) do
-    Enum.find(jobs, fn element -> element.name === job_name end)
-  end
 
   defguardp is_count(term) when is_integer(term) and term >= 3 and term <= 10
 
@@ -62,46 +22,93 @@ defmodule Ekser.Job do
                    is_integer(elem(term, 0)) and is_integer(elem(term, 1)) and
                    elem(term, 0) >= 0 and elem(term, 1) >= 0
 
-  defp new(name) when is_binary(name) do
-    %__MODULE__{name: name}
+  @impl true
+  def create_from_json(json) when is_map(json) do
+    name = json["name"]
+    count = json["pointCount"]
+    distance = json["p"]
+    resolution = {json["width"], json["height"]}
+
+    points =
+      json["mainPoints"]
+      |> Enum.map(fn element -> {element["x"], element["y"]} end)
+
+    new(name, count, distance, resolution, points)
   end
 
-  defp set_point_count(job, n) when is_job(job) and is_count(n) do
-    {:ok, %__MODULE__{job | count: n}}
+  @impl true
+  def prepare_for_json(struct) when is_job(struct) do
+    %{
+      name: struct.name,
+      pointCount: struct.count,
+      p: struct.distance,
+      width: elem(struct.resolution, 0),
+      height: elem(struct.resolution, 1),
+      mainPoints: Enum.map(struct.mainPoints, fn {x, y} -> %{x: x, y: y} end)
+    }
   end
 
-  defp set_point_count(_, _) do
-    {:error, "Number of points must be an integer between 3 and 10 (inclusive)."}
-  end
-
-  defp set_point_distance(job, p) when is_job(job) and is_distance(p) do
-    {:ok, %__MODULE__{job | distance: p}}
-  end
-
-  defp set_point_distance(_, _) do
-    {:error,
-     "Distance between points must be a floating point number between 0 and 1 (inclusive)."}
-  end
-
-  defp set_canvas_resolution(job, resolution) when is_job(job) and is_point(resolution) do
-    {:ok, %__MODULE__{job | resolution: resolution}}
-  end
-
-  defp set_canvas_resolution(_, _) do
-    {:error, "Canvas width and height must be positive integers."}
-  end
-
-  defp set_main_points(%__MODULE__{count: n} = job, points)
-       when is_job(job) and is_list(points) and length(points) == n do
-    if Enum.all?(points, fn element -> is_point(element) end) do
-      {:ok, %__MODULE__{job | points: points}}
+  @spec create_from_line(String.t()) :: tuple()
+  def create_from_line(line) when is_binary(line) do
+    with [name, count_string, distance_string, resolution_string, points_string] <-
+           String.split(line),
+         {:ok, count} <- parse_count(count_string),
+         {:ok, distance} <- parse_distance(distance_string),
+         {:ok, resolution} <- parse_resolution(resolution_string),
+         {:ok, points} <- parse_points(points_string) do
+      new(name, count, distance, resolution, points)
     else
-      {:error, "Each point in the set of points must consist of 2 positive integers."}
+      {:error, message} -> {:error, message}
+      _ -> {:error, "Failed to parse job information."}
     end
   end
 
-  defp set_main_points(_, _) do
-    {:error, "Points must be a set of N positive integer pairs."}
+  defp new(name, count, distance, resolution, points) do
+    with {:name, true} <- {:name, is_binary(name)},
+         {:count, true} <- {:count, is_count(count)},
+         {:distance, true} <- {:distance, is_distance(distance)},
+         {:resolution, true} <- {:resolution, is_point(resolution)},
+         {:ok, points} <- check_points(points) do
+      %__MODULE__{
+        name: name,
+        count: count,
+        distance: distance,
+        resolution: resolution,
+        points: points
+      }
+    else
+      {:name, false} ->
+        {:error, "Job name must be a string."}
+
+      {:count, false} ->
+        {:error, "Job point count must be an integer between 3 and 10 (inclusive)."}
+
+      {:distance, false} ->
+        {:error,
+         "Job point distance must be a floating point number between 0 and 1 (inclusive)."}
+
+      {:resolution, false} ->
+        {:error, "Job canvas resolution must be a pair of integers denoting width and height."}
+
+      {:error, message} ->
+        {:error, message}
+    end
+  end
+
+  defp check_points(points) do
+    with {_, true} <- {"Not a valid list of points.", is_list(points)},
+         {_, true} <-
+           {"Each point in the set of points must consist of 2 positive integers.",
+            Enum.all?(points, fn element -> is_point(element) end)} do
+      {:ok, points}
+    else
+      {message, false} -> {:error, message}
+    end
+  end
+
+  @spec find_job(list(struct()), String.t()) :: any()
+  def find_job(jobs, job_name) when is_list(jobs) and is_binary(job_name) do
+    Enum.find(jobs, fn element -> element.name === job_name end)
   end
 
   defp parse_point(string, separator)
@@ -149,18 +156,6 @@ defmodule Ekser.Job do
     case Enum.any?(points, fn element -> element === :error end) do
       true -> {:error, "Failed to parse points."}
       false -> {:ok, points}
-    end
-  end
-
-  defp create(name, count, distance, resolution, points) do
-    with base <- new(name),
-         {:ok, counted} <- set_point_count(base, count),
-         {:ok, distanced} <- set_point_distance(counted, distance),
-         {:ok, resolutioned} <- set_canvas_resolution(distanced, resolution),
-         {:ok, pointed} <- set_main_points(resolutioned, points) do
-      {:ok, pointed}
-    else
-      {:error, message} -> {:error, message}
     end
   end
 end

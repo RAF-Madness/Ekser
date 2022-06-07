@@ -41,7 +41,13 @@ defmodule Ekser.Util do
     end
   end
 
-  def to_ip(_, _) do
+  def to_ip(_) do
     {:error, "Failed to parse IP address."}
+  end
+
+  def from_ip(ip) when is_tcp_ip(ip) do
+    ip
+    |> Tuple.to_list()
+    |> Enum.join(".")
   end
 end

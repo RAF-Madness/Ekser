@@ -1,5 +1,6 @@
 defmodule Ekser.Node do
   require Ekser.Util
+  @behaviour Ekser.Serializable
 
   defstruct [
     :id,
@@ -9,50 +10,35 @@ defmodule Ekser.Node do
 
   defguard is_node(term) when is_struct(term, __MODULE__)
 
-  def create_from_map(map) when is_map(map) do
-    id = map["id"]
-    ip = map["ipAddress"]
-    port = map["port"]
+  @impl true
+  def create_from_json(json) when is_map(json) do
+    id = json["id"]
+    ip = json["ipAddress"]
+    port = json["port"]
 
-    create(id, ip, port)
+    new(id, ip, port)
   end
 
-  def create(id, ip, port) do
-    with base <- new(),
-         {:ok, ided} <- set_id(base, id),
-         {:ok, iped} <- set_ip(ided, ip),
-         {:ok, ported} <- set_port(iped, port) do
-      {:ok, ported}
+  @impl true
+  def prepare_for_json(struct) when is_node(struct) do
+    %{id: struct.id, ip: Ekser.Util.from_ip(struct.ip), port: struct.port}
+  end
+
+  def new(id, ip, port) do
+    with {:id, true} <- {:id, is_integer(id)},
+         {:ip, true} <- {:ip, Ekser.Util.is_tcp_ip(ip)},
+         {:port, true} <- {:port, Ekser.Util.is_tcp_port(port)} do
+      {:ok, %__MODULE__{id: id, ip: ip, port: port}}
     else
-      {:error, message} -> {:error, message}
+      {:id, false} ->
+        {:error, "Node ID must be an integer."}
+
+      {:ip, false} ->
+        {:error,
+         "Node IP must be a valid IP address represented as a tuple of separate integers."}
+
+      {:port, false} ->
+        {:error, Ekser.Util.port_prompt()}
     end
-  end
-
-  defp new() do
-    %__MODULE__{}
-  end
-
-  defp set_id(node, id) when is_node(node) and is_integer(id) do
-    {:ok, %__MODULE__{node | id: id}}
-  end
-
-  defp set_id(_, _) do
-    {:error, "ID must be an integer."}
-  end
-
-  defp set_ip(node, ip) when is_node(node) and Ekser.Util.is_tcp_ip(ip) do
-    {:ok, %__MODULE__{node | ip: ip}}
-  end
-
-  defp set_ip(_, _) do
-    {:error, "IP must be a valid IP address."}
-  end
-
-  defp set_port(node, port) when is_node(node) and Ekser.Util.is_tcp_port(port) do
-    {:ok, %__MODULE__{node | port: port}}
-  end
-
-  defp set_port(_, _) do
-    {:error, Ekser.Util.port_prompt()}
   end
 end

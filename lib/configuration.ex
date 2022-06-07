@@ -8,12 +8,13 @@ defmodule Ekser.Config do
   require Ekser.Util
   require Ekser.Node
   require Ekser.Job
+  @behaviour Ekser.Serializable
 
   defstruct [
     :port,
     :bootstrap,
-    :watchdog_timeout,
-    :failure_timeout,
+    :weak_timeout,
+    :strong_timeout,
     jobs: []
   ]
 
@@ -27,7 +28,7 @@ defmodule Ekser.Config do
       Path.expand(file)
       |> File.read!()
       |> Jason.decode!()
-      |> create_from_map
+      |> create_from_json()
 
     case response do
       {:ok, config} -> config
@@ -35,75 +36,81 @@ defmodule Ekser.Config do
     end
   end
 
-  defp new() do
-    %__MODULE__{}
-  end
+  @impl true
+  def create_from_json(json) when is_map(json) do
+    port = json["port"]
+    weak_timeout = json["weakLimit"]
+    strong_timeout = json["strongLimit"]
 
-  defp set_port(config, port) when is_config(config) and Ekser.Util.is_tcp_port(port) do
-    {:ok, %__MODULE__{config | port: port}}
-  end
-
-  defp set_port(_, _) do
-    {:error, Ekser.Util.port_prompt()}
-  end
-
-  defp set_bootstrap(config, bootstrap)
-       when is_config(config) and Ekser.Node.is_node(bootstrap) do
-    {:ok, %__MODULE__{config | bootstrap: bootstrap}}
-  end
-
-  defp set_bootstrap(_, _) do
-    {:error, "Bootstrap must be in the form of a node (tuple with id, IP and port)."}
-  end
-
-  defp set_watchdog(config, timeout) when is_config(config) and is_timeout(timeout) do
-    {:ok, %__MODULE__{config | watchdog_timeout: timeout}}
-  end
-
-  defp set_watchdog(_, _) do
-    {:error, "Watchdog timeout must be a positive integer."}
-  end
-
-  defp set_failure(config, timeout) when is_config(config) and is_timeout(timeout) do
-    {:ok, %__MODULE__{config | failure_timeout: timeout}}
-  end
-
-  defp set_failure(_, _) do
-    {:error, "Failure timeout must be a positive integer."}
-  end
-
-  defp set_jobs(config, jobs) when is_config(config) and is_list(jobs) do
-    with {_, true} <- {"jobs", Enum.all?(jobs, fn element -> Ekser.Job.is_job(element) end)},
-         unique_jobs <- Enum.uniq_by(jobs, fn element -> element.name end),
-         {_, true} <- {"unique", length(unique_jobs) === length(jobs)} do
-      {:ok, %__MODULE__{config | jobs: jobs}}
-    else
-      {"jobs", false} -> {:error, "Job list must contain jobs only."}
-      {"unique", false} -> {:error, "Job list cannot contain 2 or more jobs with the same name."}
-    end
-  end
-
-  defp set_jobs(_, _) do
-    {:error, "Job list must be a valid list of uniquely named jobs."}
-  end
-
-  defp create_from_map(map) when is_map(map) do
-    port = map["port"]
-    watchdog_timeout = map["weakLimit"]
-    failure_timeout = map["strongLimit"]
-
-    with {:ok, ip} <- Ekser.Util.to_ip(map["bootstrapIpAddress"]),
-         {:ok, bootstrap} <- Ekser.Node.create(-1, ip, map["bootstrapPort"]),
-         {:ok, jobs} <- map["jobs"] |> to_jobs() do
-      create(port, bootstrap, watchdog_timeout, failure_timeout, jobs)
+    with {:ok, ip} <- Ekser.Util.to_ip(json["bootstrapIpAddress"]),
+         {:ok, bootstrap} <- Ekser.Node.new(-1, ip, json["bootstrapPort"]),
+         {:ok, jobs} <- json["jobs"] |> to_jobs() do
+      new(port, bootstrap, weak_timeout, strong_timeout, jobs)
     else
       {:error, message} -> {:error, message}
       _ -> {:error, "Failed to parse configuration."}
     end
   end
 
+  @impl true
+  def prepare_for_json(struct) when is_config(struct) do
+    %{
+      port: struct.port,
+      bootstrapIpAddress: Ekser.Util.from_ip(struct.bootstrap.ip),
+      bootstrapPort: struct.bootstrap.port,
+      weakLimit: struct.watchdog_timeout,
+      strongLimit: struct.failure_timeout,
+      jobs: Enum.map(struct.jobs, fn job -> Ekser.Job.prepare_for_json(job) end)
+    }
+  end
+
+  defp new(port, bootstrap, weak_timeout, strong_timeout, jobs) do
+    with {:port, true} <- {:port, Ekser.Util.is_tcp_port(port)},
+         {:bootstrap, true} <- {:bootstrap, Ekser.Node.is_node(bootstrap)},
+         {:weak_timeout, true} <- {:weak_timeout, is_timeout(weak_timeout)},
+         {:strong_timeout, true} <- {:strong_timeout, is_timeout(strong_timeout)},
+         {:ok, jobs} <- check_jobs(jobs) do
+      {:ok,
+       %__MODULE__{
+         port: port,
+         bootstrap: bootstrap,
+         weak_timeout: weak_timeout,
+         strong_timeout: strong_timeout,
+         jobs: jobs
+       }}
+    else
+      {:port, false} ->
+        {:error, Ekser.Util.port_prompt()}
+
+      {:bootstrap, false} ->
+        {:error, "Bootstrap must be in the form of a node (tuple with id, IP and port)."}
+
+      {:weak_timeout, false} ->
+        {:error, "Weak timeout must be a positive integer."}
+
+      {:strong_timeout, false} ->
+        {:error, "Strong timeout must be a positive integer."}
+
+      {:error, message} ->
+        {:error, message}
+    end
+  end
+
+  defp check_jobs(jobs) do
+    with {_, true} <- {"Not a valid job list.", is_list(jobs)},
+         {_, true} <-
+           {"Not a valid job list.", Enum.all?(jobs, fn element -> Ekser.Job.is_job(element) end)},
+         {_, true} <-
+           {"Job list cannot contain more than one job with the same name.",
+            length(Enum.uniq_by(jobs, fn element -> element.name end)) === length(jobs)} do
+      {:ok, jobs}
+    else
+      {message, false} -> {:error, message}
+    end
+  end
+
   defp to_jobs(map_list) when is_list(map_list) do
-    jobs = for map <- map_list, do: Ekser.Job.create_from_map(map)
+    jobs = for map <- map_list, do: Ekser.Job.create_from_json(map)
 
     error_reading =
       Enum.find(jobs, fn
@@ -113,20 +120,6 @@ defmodule Ekser.Config do
 
     case error_reading do
       nil -> {:ok, Enum.map(jobs, fn {:ok, job} -> job end)}
-      {:error, message} -> {:error, message}
-    end
-  end
-
-  defp create(port, bootstrap, watchdog, failure, jobs) do
-    base = new()
-
-    with {:ok, ported} <- set_port(base, port),
-         {:ok, bootstraped} <- set_bootstrap(ported, bootstrap),
-         {:ok, watchdogged} <- set_watchdog(bootstraped, watchdog),
-         {:ok, failured} <- set_failure(watchdogged, failure),
-         {:ok, jobbed} <- set_jobs(failured, jobs) do
-      {:ok, jobbed}
-    else
       {:error, message} -> {:error, message}
     end
   end

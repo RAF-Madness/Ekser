@@ -20,9 +20,15 @@ defmodule Ekser.Commander do
   require Ekser.Job
   use Task
 
-  def child_spec(filename, jobs) do
+  def child_spec([filename, jobs]) do
+    id =
+      case filename do
+        :stdio -> CLI
+        _ -> FI
+      end
+
     %{
-      id: __MODULE__,
+      id: id,
       start: {__MODULE__, :start_link, [filename, jobs]},
       restart: :transient,
       significant: true,
@@ -31,7 +37,7 @@ defmodule Ekser.Commander do
     }
   end
 
-  def start_link(jobs, filename) do
+  def start_link([filename, jobs]) do
     Task.start_link(__MODULE__, :run, [filename, jobs])
   end
 

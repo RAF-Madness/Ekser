@@ -20,15 +20,17 @@ defmodule Ekser.Supervisor do
   defp get_children() do
     config = Ekser.Config.read_config("config.json")
 
-    basic = [
-      Ekser.Commander.child_spec(config.jobs, :stdio),
-      Ekser.TCPReceiver.child_spec(config.port)
-    ]
+    initial = add_parser(config)
 
-    append_parsers(config, basic)
+    [
+      Task.Supervisor.child_spec(name: Ekser.Receiver.Supervisor),
+      Ekser.TCPReceiver.child_spec([config.port]),
+      Ekser.Commander.child_spec([config.jobs, :stdio])
+      | initial
+    ]
   end
 
-  defp append_parsers(config, children) do
+  defp add_parser(config) do
     inputFile =
       "input.txt"
       |> Path.expand()
@@ -39,10 +41,10 @@ defmodule Ekser.Supervisor do
 
     case readFromFile do
       true ->
-        [Ekser.Commander.child_spec(config.jobs, inputFile) | children]
+        [Ekser.Commander.child_spec([config.jobs, inputFile])]
 
       false ->
-        children
+        []
     end
   end
 end
