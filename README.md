@@ -19,3 +19,4 @@ Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_do
 and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
 be found at <https://hexdocs.pm/ekser>.
 
+![Diagram](https://user-images.githubusercontent.com/5150655/172806621-974434ac-2797-42fb-94d3-e22c5971f956.png)
