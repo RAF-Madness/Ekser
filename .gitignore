@@ -20,7 +20,7 @@ erl_crash.dump
 *.ez
 
 # Ignore package tarball (built via "mix hex.build").
-kids_2022_proj_andrej_gasic_rn0218-*.tar
+ekser-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/

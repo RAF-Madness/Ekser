@@ -10,12 +10,13 @@ defmodule Ekser.Config do
   require Ekser.Job
   @behaviour Ekser.Serializable
 
+  @enforce_keys [:port, :bootstrap, :weak_timeout, :strong_timeout, :jobs]
   defstruct [
     :port,
     :bootstrap,
     :weak_timeout,
     :strong_timeout,
-    jobs: []
+    :jobs
   ]
 
   defguard is_config(term) when is_struct(term, __MODULE__)
@@ -65,10 +66,13 @@ defmodule Ekser.Config do
   end
 
   defp new(port, bootstrap, weak_timeout, strong_timeout, jobs) do
-    with {:port, true} <- {:port, Ekser.Util.is_tcp_port(port)},
-         {:bootstrap, true} <- {:bootstrap, Ekser.Node.is_node(bootstrap)},
-         {:weak_timeout, true} <- {:weak_timeout, is_timeout(weak_timeout)},
-         {:strong_timeout, true} <- {:strong_timeout, is_timeout(strong_timeout)},
+    with {true, _} <-
+           {Ekser.Util.is_tcp_port(port), Ekser.Util.port_prompt()},
+         {true, _} <-
+           {Ekser.Node.is_node(bootstrap),
+            "Bootstrap must be in the form of a node (tuple with id, IP and port)."},
+         {true, _} <- {is_timeout(weak_timeout), "Weak timeout must be a positive integer."},
+         {true, _} <- {is_timeout(strong_timeout), "Strong timeout must be a positive integer."},
          {:ok, jobs} <- check_jobs(jobs) do
       {:ok,
        %__MODULE__{
@@ -79,17 +83,8 @@ defmodule Ekser.Config do
          jobs: jobs
        }}
     else
-      {:port, false} ->
-        {:error, Ekser.Util.port_prompt()}
-
-      {:bootstrap, false} ->
-        {:error, "Bootstrap must be in the form of a node (tuple with id, IP and port)."}
-
-      {:weak_timeout, false} ->
-        {:error, "Weak timeout must be a positive integer."}
-
-      {:strong_timeout, false} ->
-        {:error, "Strong timeout must be a positive integer."}
+      {false, message} ->
+        {:error, message}
 
       {:error, message} ->
         {:error, message}
@@ -97,15 +92,15 @@ defmodule Ekser.Config do
   end
 
   defp check_jobs(jobs) do
-    with {_, true} <- {"Not a valid job list.", is_list(jobs)},
-         {_, true} <-
-           {"Not a valid job list.", Enum.all?(jobs, fn element -> Ekser.Job.is_job(element) end)},
-         {_, true} <-
-           {"Job list cannot contain more than one job with the same name.",
-            length(Enum.uniq_by(jobs, fn element -> element.name end)) === length(jobs)} do
+    with {true, _} <- {is_list(jobs), "Not a valid job list."},
+         {true, _} <-
+           {Enum.all?(jobs, fn element -> Ekser.Job.is_job(element) end), "Not a valid job list."},
+         {true, _} <-
+           {length(Enum.uniq_by(jobs, fn element -> element.name end)) === length(jobs),
+            "Job list cannot contain more than one job with the same name."} do
       {:ok, jobs}
     else
-      {message, false} -> {:error, message}
+      {false, message} -> {:error, message}
     end
   end
 

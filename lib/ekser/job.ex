@@ -9,7 +9,8 @@
 defmodule Ekser.Job do
   @behaviour Ekser.Serializable
 
-  defstruct [:name, :count, :distance, :resolution, points: []]
+  @enforce_keys [:name, :count, :distance, :resolution, :points]
+  defstruct [:name, :count, :distance, :resolution, :points]
 
   defguard is_job(term) when is_struct(term, __MODULE__)
 
@@ -64,10 +65,15 @@ defmodule Ekser.Job do
   end
 
   defp new(name, count, distance, resolution, points) do
-    with {:name, true} <- {:name, is_binary(name)},
-         {:count, true} <- {:count, is_count(count)},
-         {:distance, true} <- {:distance, is_distance(distance)},
-         {:resolution, true} <- {:resolution, is_point(resolution)},
+    with {true, _} <- {is_binary(name), "Job name must be a string."},
+         {true, _} <-
+           {is_count(count), "Job point count must be an integer between 3 and 10 (inclusive)."},
+         {true, _} <-
+           {is_distance(distance),
+            "Job point distance must be a floating point number between 0 and 1 (inclusive)."},
+         {true, _} <-
+           {is_point(resolution),
+            "Job canvas resolution must be a pair of integers denoting width and height."},
          {:ok, points} <- check_points(points) do
       %__MODULE__{
         name: name,
@@ -77,18 +83,8 @@ defmodule Ekser.Job do
         points: points
       }
     else
-      {:name, false} ->
-        {:error, "Job name must be a string."}
-
-      {:count, false} ->
-        {:error, "Job point count must be an integer between 3 and 10 (inclusive)."}
-
-      {:distance, false} ->
-        {:error,
-         "Job point distance must be a floating point number between 0 and 1 (inclusive)."}
-
-      {:resolution, false} ->
-        {:error, "Job canvas resolution must be a pair of integers denoting width and height."}
+      {false, message} ->
+        {:error, message}
 
       {:error, message} ->
         {:error, message}
@@ -96,17 +92,19 @@ defmodule Ekser.Job do
   end
 
   defp check_points(points) do
-    with {_, true} <- {"Not a valid list of points.", is_list(points)},
-         {_, true} <-
-           {"Each point in the set of points must consist of 2 positive integers.",
-            Enum.all?(points, fn element -> is_point(element) end)} do
+    with {true, _} <- {is_list(points), "Not a valid list of points."},
+         {true, _} <-
+           {
+             Enum.all?(points, fn element -> is_point(element) end),
+             "Each point in the set of points must consist of 2 positive integers."
+           } do
       {:ok, points}
     else
-      {message, false} -> {:error, message}
+      {false, message} -> {:error, message}
     end
   end
 
-  @spec find_job(list(struct()), String.t()) :: any()
+  @spec find_job(list(%__MODULE__{}), String.t()) :: any()
   def find_job(jobs, job_name) when is_list(jobs) and is_binary(job_name) do
     Enum.find(jobs, fn element -> element.name === job_name end)
   end

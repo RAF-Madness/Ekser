@@ -1,9 +1,9 @@
-defmodule Kids2022ProjAndrejGasicRn0218.MixProject do
+defmodule Ekser.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :kids_2022_proj_andrej_gasic_rn0218,
+      app: :ekser,
       version: "0.1.0",
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
@@ -15,13 +15,14 @@ defmodule Kids2022ProjAndrejGasicRn0218.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {Ekser, []}
+      mod: {Ekser.Application, []}
     ]
   end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:logger_file_backend, "~> 0.0.13"},
       {:jason, "~> 1.3"},
       {:png, "~> 0.2.1"}
     ]

@@ -1,6 +1,0 @@
-port=6000
-bootstrap=127.0.0.1:4000
-watchdog=100
-failure=1000
-triangle 3 0.2 1920x1080 2,3|1,1|0,2
-square 4 0.6 1920x1080 0,0|1,1|2,2|3,3

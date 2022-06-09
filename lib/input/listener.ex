@@ -1,11 +1,11 @@
-defmodule Ekser.TCPReceiver do
+defmodule Ekser.Listener do
   require Ekser.Util
   use Task
 
-  def child_spec([port]) when Ekser.Util.is_tcp_port(port) do
+  def child_spec(opts) do
     %{
       id: __MODULE__,
-      start: {__MODULE__, :start_link, [port]},
+      start: {__MODULE__, :start_link, [opts]},
       restart: :transient,
       significant: true,
       shutdown: 5000,
@@ -13,23 +13,25 @@ defmodule Ekser.TCPReceiver do
     }
   end
 
-  def start_link([port]) when Ekser.Util.is_tcp_port(port) do
+  def start_link(opts) do
+    {port, _} = Keyword.pop!(opts, :value)
+    # Wrapping port in [] needed because of Task.start_link definition
     Task.start_link(__MODULE__, :run, [port])
   end
 
   def run(port) when Ekser.Util.is_tcp_port(port) do
-    {:ok, socket} = :gen_tcp.listen(port, [:binary, packet: :raw, active: false, reuseaddr: true])
+    {:ok, socket} = :gen_tcp.listen(port, Ekser.Util.socket_options())
     listen(socket)
   end
 
   defp listen(socket) do
     {:ok, client} = :gen_tcp.accept(socket)
-    {:ok, pid} = Task.Supervisor.start_child(Ekser.Receiver.Supervisor, fn -> serve(client) end)
+    {:ok, pid} = Task.Supervisor.start_child(Ekser.MessageSup, fn -> serve(client, self()) end)
     :ok = :gen_tcp.controlling_process(client, pid)
     listen(socket)
   end
 
-  defp serve(socket) do
+  defp serve(socket, _) do
     socket
     |> read()
     |> Jason.decode!()

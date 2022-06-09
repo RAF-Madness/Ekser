@@ -1,6 +1,7 @@
 defmodule Ekser.Command do
   require Ekser.Job
 
+  @enforce_keys [:name, :function, :parameters, :format]
   defstruct [
     :name,
     :function,
@@ -8,9 +9,10 @@ defmodule Ekser.Command do
     :format
   ]
 
-  @spec execute(any(), any(), %__MODULE__{}, list()) :: String.t() | {String.t(), %Ekser.Job{}}
-  def execute(input, output, command, arguments) do
-    command.function.(input, output, arguments)
+  @spec execute(%__MODULE__{}, list()) ::
+          String.t() | {String.t(), function()} | {String.t(), function(), %Ekser.Job{}}
+  def execute(command, arguments) do
+    command.function.(arguments)
   end
 
   @spec get_command(nonempty_list(String.t()), nonempty_list(%Ekser.Job{})) ::

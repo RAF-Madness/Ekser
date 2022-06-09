@@ -2,6 +2,7 @@ defmodule Ekser.Message do
   require Ekser.Node
   @behaviour Ekser.Serializable
 
+  @enforce_keys [:type, :sender, :receiver, :content]
   defstruct [
     :type,
     :sender,

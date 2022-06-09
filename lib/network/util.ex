@@ -50,4 +50,8 @@ defmodule Ekser.Util do
     |> Tuple.to_list()
     |> Enum.join(".")
   end
+
+  def socket_options() do
+    [:binary, packet: :raw, active: false, reuseaddr: true]
+  end
 end

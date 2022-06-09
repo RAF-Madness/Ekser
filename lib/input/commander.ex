@@ -20,7 +20,7 @@ defmodule Ekser.Commander do
   require Ekser.Job
   use Task
 
-  def child_spec([filename, jobs]) do
+  def child_spec(opts = [value: {filename, _}]) do
     id =
       case filename do
         :stdio -> CLI
@@ -29,7 +29,7 @@ defmodule Ekser.Commander do
 
     %{
       id: id,
-      start: {__MODULE__, :start_link, [filename, jobs]},
+      start: {__MODULE__, :start_link, [opts]},
       restart: :transient,
       significant: true,
       shutdown: 5000,
@@ -37,7 +37,8 @@ defmodule Ekser.Commander do
     }
   end
 
-  def start_link([filename, jobs]) do
+  def start_link(opts) do
+    {{filename, jobs}, _} = Keyword.pop!(opts, :value)
     Task.start_link(__MODULE__, :run, [filename, jobs])
   end
 
@@ -62,25 +63,54 @@ defmodule Ekser.Commander do
   defp read(input, output, jobs) do
     read_input =
       IO.gets(input, "")
-      |> clean_and_split()
+      |> String.trim()
+      |> String.split()
 
-    with {:ok, command, arguments} <- Ekser.Command.get_command(read_input, jobs),
-         {message, job} <- Ekser.Command.execute(input, output, command, arguments) do
-      IO.puts(output, message)
-      read(input, output, [job | jobs])
-    else
-      {:error, message} ->
-        IO.puts(output, message)
-        read(input, output, jobs)
+    retrieved_command = Ekser.Command.get_command(read_input, jobs)
 
-      message ->
-        IO.puts(output, message)
-        read(input, output, jobs)
+    new_jobs =
+      case retrieved_command do
+        {:ok, command, arguments} ->
+          Ekser.Command.execute(command, arguments)
+          |> execute_chain(input, output, jobs)
+
+        {:error, message} ->
+          IO.puts(output, message)
+          jobs
+      end
+
+    read(input, output, new_jobs)
+  end
+
+  defp execute_chain(return, input, output, jobs) do
+    case return do
+      {message, _} when is_binary(message) -> IO.puts(output, message)
+      message when is_binary(message) -> IO.puts(output, message)
+      _ -> :ok
+    end
+
+    case return do
+      {job, new_function} when Ekser.Job.is_job(job) and is_function(new_function) ->
+        new_function.(job, is_unique(jobs, job))
+        |> execute_chain(input, output, jobs)
+
+      {_, new_function} when is_function(new_function) ->
+        IO.gets(input, "")
+        |> String.trim()
+        |> new_function.()
+        |> execute_chain(input, output, jobs)
+
+      _ ->
+        jobs
     end
   end
 
-  defp clean_and_split(line) do
-    String.trim(line)
-    |> String.split()
+  defp is_unique(jobs, job) when Ekser.Job.is_job(job) do
+    duplicate = Ekser.Job.find_job(jobs, job)
+
+    case duplicate do
+      nil -> true
+      _ -> false
+    end
   end
 end

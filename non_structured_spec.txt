@@ -1,6 +1,0 @@
-Load configuration -> 
-start tcp receiver, status pooler, work manager -> 
-send bootstrap notification for joining -> 
-receiver receives first node information and contacts first node ->
-receiver receives table from first node ->
-start node hash table and parsers

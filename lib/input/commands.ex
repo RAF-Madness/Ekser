@@ -7,24 +7,24 @@ defmodule Ekser.Command.Status do
   def generate() do
     Ekser.Command.new(
       "status",
-      &status/3,
+      &status/1,
       [{&Ekser.Command.resolve_job/2, true}, {&Ekser.Command.resolve_id/2, true}],
       "status [X [id]]"
     )
   end
 
-  defp status(_, _, [job, id])
+  defp status([job, id])
        when Ekser.Job.is_job(job) and is_integer(id) do
     # send message to status supervisor
     "Collecting status for job " <> job.name <> " and id " <> Integer.to_string(id)
   end
 
-  defp status(_, _, [job]) when Ekser.Job.is_job(job) do
+  defp status([job]) when Ekser.Job.is_job(job) do
     # send message to status supervisor
     "Collecting status for job " <> job.name
   end
 
-  defp status(_, _, []) do
+  defp status([]) do
     # send message to status supervisor
     "Collecting status for all jobs"
   end
@@ -39,32 +39,37 @@ defmodule Ekser.Command.Start do
   def generate() do
     Ekser.Command.new(
       "start",
-      &start/3,
+      &start/1,
       [{&Ekser.Command.resolve_job/2, true}],
       "start [X]"
     )
   end
 
-  defp start(_, _, [job]) when Ekser.Job.is_job(job) do
+  defp start([job]) when Ekser.Job.is_job(job) do
     # send message to worker
     "Starting job " <> job.name
   end
 
-  defp start(input, output, []) do
-    IO.puts(output, "Enter job parameters. Format: name N P WxH A1|A2|A3...")
+  defp start([]) do
+    {"Enter job parameters. Format: name N P WxH A1|A2|A3...", &parse_job/1}
+  end
 
-    read_job =
-      IO.gets(input, "")
-      |> Ekser.Job.create_from_line()
+  defp parse_job(line) do
+    read_job = Ekser.Job.create_from_line(line)
 
     case read_job do
-      {:ok, job} ->
-        # send message to job supervisor
-        {"Starting new job " <> job.name, job}
-
-      {:error, message} ->
-        message
+      {:ok, job} -> {job, &clear_to_start/2}
+      {:error, message} -> message
     end
+  end
+
+  defp clear_to_start(job, true) do
+    # send message to job supervisor
+    {"Starting new job " <> job.name, job}
+  end
+
+  defp clear_to_start(_, false) do
+    "Provided job was not unique. Failed to start."
   end
 end
 
@@ -77,19 +82,19 @@ defmodule Ekser.Command.Result do
   def generate() do
     Ekser.Command.new(
       "result",
-      &result/3,
+      &result/1,
       [{&Ekser.Command.resolve_job/2, false}, {&Ekser.Command.resolve_id/2, true}],
       "result X [id]"
     )
   end
 
-  defp result(_, _, [job, id])
+  defp result([job, id])
        when Ekser.Job.is_job(job) and is_integer(id) do
     # send message to png exporter
     "Generating fractal image for job " <> job.name <> " and node ID " <> Integer.to_string(id)
   end
 
-  defp result(_, _, [job]) when Ekser.Job.is_job(job) do
+  defp result([job]) when Ekser.Job.is_job(job) do
     # send message to png exporter
     "Generating fractal image for job " <> job.name
   end
@@ -104,13 +109,13 @@ defmodule Ekser.Command.Stop do
   def generate() do
     Ekser.Command.new(
       "stop",
-      &stop/3,
+      &stop/1,
       [{&Ekser.Command.resolve_job/2, false}],
       "stop X"
     )
   end
 
-  defp stop(_, _, [job]) when Ekser.Job.is_job(job) do
+  defp stop([job]) when Ekser.Job.is_job(job) do
     # send message to worker
     "Stopping job " <> job.name
   end
@@ -124,13 +129,13 @@ defmodule Ekser.Command.Pause do
   def generate() do
     Ekser.Command.new(
       "pause",
-      &pause/3,
+      &pause/1,
       [{&Ekser.Command.resolve_milliseconds/2, false}],
       "pause T"
     )
   end
 
-  defp pause(_, _, [milliseconds]) when is_integer(milliseconds) and milliseconds > 0 do
+  defp pause([milliseconds]) when is_integer(milliseconds) and milliseconds > 0 do
     Process.sleep(milliseconds)
     "Successfully slept for " <> Integer.to_string(milliseconds) <> " milliseconds."
   end
@@ -144,13 +149,13 @@ defmodule Ekser.Command.Quit do
   def generate() do
     Ekser.Command.new(
       "quit",
-      &quit/3,
+      &quit/1,
       [],
       "quit"
     )
   end
 
-  defp quit(_, _, []) do
+  defp quit([]) do
     exit(:shutdown)
   end
 end
