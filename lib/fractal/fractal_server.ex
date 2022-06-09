@@ -11,6 +11,6 @@ defmodule Ekser.FractalServ do
 
   @impl true
   def init(:ok) do
-    {:ok, %{}}
+    {:ok, %__MODULE__{}}
   end
 end

@@ -10,7 +10,7 @@ defmodule Ekser.Command do
   ]
 
   @spec execute(%__MODULE__{}, list()) ::
-          String.t() | {String.t(), function()} | {String.t(), function(), %Ekser.Job{}}
+          String.t() | {String.t(), function()} | {%Ekser.Job{}, function()}
   def execute(command, arguments) do
     command.function.(arguments)
   end
