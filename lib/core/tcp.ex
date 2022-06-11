@@ -1,4 +1,4 @@
-defmodule Ekser.Util do
+defmodule Ekser.TCP do
   defguardp is_byte(term) when is_integer(term) and term >= 0 and term <= 255
 
   defguardp is_short(term) when is_integer(term) and term >= 0 and term <= 65535

@@ -31,11 +31,12 @@ defmodule Ekser.Supervisor do
     config = Ekser.Config.read_config("config.json")
 
     [
-      Ekser.DHT.child_spec(value: {config.port, config.bootstrap}, name: Ekser.DHT),
+      # Ekser.DHT.child_spec(value: {config.port, config.bootstrap}, name: Ekser.DHT),
       Task.Supervisor.child_spec(name: Ekser.SenderSup),
       Ekser.Sender.child_spec(name: Ekser.Sender),
-      Ekser.FractalServ.child_spec(name: Ekser.FractalServ),
-      Ekser.FractalSup.child_spec(name: Ekser.FractalSup),
+      Ekser.AggregatorSup.child_spec(name: Ekser.AggregateSup),
+      Registry.child_spec(keys: :unique, name: AggregatorRegistry),
+      Ekser.AggregateServ.child_spec(name: Ekser.AggregateServ),
       Ekser.InputSup.child_spec(value: config, name: Ekser.InputSup)
     ]
   end

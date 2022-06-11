@@ -5,21 +5,15 @@
 # ● Skup predefinisanih poslova.
 
 defmodule Ekser.Config do
-  require Ekser.Util
-  require Ekser.Node
+  require Ekser.TCP
   require Ekser.Job
+  require Ekser.Node
   @behaviour Ekser.Serializable
 
   @enforce_keys [:port, :bootstrap, :weak_timeout, :strong_timeout, :jobs]
-  defstruct [
-    :port,
-    :bootstrap,
-    :weak_timeout,
-    :strong_timeout,
-    :jobs
-  ]
+  defstruct @enforce_keys
 
-  defguard is_config(term) when is_struct(term, __MODULE__)
+  defguardp is_config(term) when is_struct(term, __MODULE__)
 
   defguardp is_timeout(term) when is_integer(term) and term > 0
 
@@ -37,15 +31,15 @@ defmodule Ekser.Config do
     end
   end
 
-  @impl true
+  @impl Ekser.Serializable
   def create_from_json(json) when is_map(json) do
     port = json["port"]
     weak_timeout = json["weakLimit"]
     strong_timeout = json["strongLimit"]
 
-    with {:ok, ip} <- Ekser.Util.to_ip(json["bootstrapIpAddress"]),
+    with {:ok, ip} <- Ekser.TCP.to_ip(json["bootstrapIpAddress"]),
          {:ok, bootstrap} <- Ekser.Node.new(-1, ip, json["bootstrapPort"]),
-         {:ok, jobs} <- json["jobs"] |> to_jobs() do
+         {:ok, jobs} <- json["jobs"] |> Ekser.Serializable.json_list_to_map(Ekser.Job) do
       new(port, bootstrap, weak_timeout, strong_timeout, jobs)
     else
       {:error, message} -> {:error, message}
@@ -53,27 +47,21 @@ defmodule Ekser.Config do
     end
   end
 
-  @impl true
-  def prepare_for_json(struct) when is_config(struct) do
-    %{
-      port: struct.port,
-      bootstrapIpAddress: Ekser.Util.from_ip(struct.bootstrap.ip),
-      bootstrapPort: struct.bootstrap.port,
-      weakLimit: struct.watchdog_timeout,
-      strongLimit: struct.failure_timeout,
-      jobs: Enum.map(struct.jobs, fn job -> Ekser.Job.prepare_for_json(job) end)
-    }
+  @impl Ekser.Serializable
+  def get_kv(struct) when is_config(struct) do
+    {struct.port, struct}
   end
 
   defp new(port, bootstrap, weak_timeout, strong_timeout, jobs) do
     with {true, _} <-
-           {Ekser.Util.is_tcp_port(port), Ekser.Util.port_prompt()},
+           {Ekser.TCP.is_tcp_port(port), Ekser.TCP.port_prompt()},
          {true, _} <-
            {Ekser.Node.is_node(bootstrap),
             "Bootstrap must be in the form of a node (tuple with id, IP and port)."},
          {true, _} <- {is_timeout(weak_timeout), "Weak timeout must be a positive integer."},
          {true, _} <- {is_timeout(strong_timeout), "Strong timeout must be a positive integer."},
-         {:ok, jobs} <- check_jobs(jobs) do
+         {true, _} <-
+           {Ekser.Serializable.valid_map?(jobs, Ekser.Job), "Jobs must be a valid job map."} do
       {:ok,
        %__MODULE__{
          port: port,
@@ -85,37 +73,21 @@ defmodule Ekser.Config do
     else
       {false, message} ->
         {:error, message}
-
-      {:error, message} ->
-        {:error, message}
     end
   end
+end
 
-  defp check_jobs(jobs) do
-    with {true, _} <- {is_list(jobs), "Not a valid job list."},
-         {true, _} <-
-           {Enum.all?(jobs, fn element -> Ekser.Job.is_job(element) end), "Not a valid job list."},
-         {true, _} <-
-           {length(Enum.uniq_by(jobs, fn element -> element.name end)) === length(jobs),
-            "Job list cannot contain more than one job with the same name."} do
-      {:ok, jobs}
-    else
-      {false, message} -> {:error, message}
-    end
-  end
+defimpl Jason.Encoder, for: Ekser.Config do
+  def encode(value, opts) do
+    map = %{
+      port: value.port,
+      bootstrapIpAddress: Ekser.TCP.from_ip(value.bootstrap.ip),
+      bootstrapPort: value.bootstrap.port,
+      weakLimit: value.watchdog_timeout,
+      strongLimit: value.failure_timeout,
+      jobs: value.jobs.values
+    }
 
-  defp to_jobs(map_list) when is_list(map_list) do
-    jobs = for map <- map_list, do: Ekser.Job.create_from_json(map)
-
-    error_reading =
-      Enum.find(jobs, fn
-        {:error, _} -> true
-        _ -> false
-      end)
-
-    case error_reading do
-      nil -> {:ok, Enum.map(jobs, fn {:ok, job} -> job end)}
-      {:error, message} -> {:error, message}
-    end
+    Jason.Encode.map(map, opts)
   end
 end

@@ -7,6 +7,7 @@
 # ○ A - skup N tačaka. (niz od N parova int-ova
 
 defmodule Ekser.Job do
+  require Ekser.Point
   @behaviour Ekser.Serializable
 
   @enforce_keys [:name, :count, :distance, :resolution, :points]
@@ -18,12 +19,7 @@ defmodule Ekser.Job do
 
   defguardp is_distance(term) when is_float(term) and term >= 0 and term <= 1
 
-  defguardp is_point(term)
-            when is_tuple(term) and tuple_size(term) == 2 and
-                   is_integer(elem(term, 0)) and is_integer(elem(term, 1)) and
-                   elem(term, 0) >= 0 and elem(term, 1) >= 0
-
-  @impl true
+  @impl Ekser.Serializable
   def create_from_json(json) when is_map(json) do
     name = json["name"]
     count = json["pointCount"]
@@ -37,19 +33,12 @@ defmodule Ekser.Job do
     new(name, count, distance, resolution, points)
   end
 
-  @impl true
-  def prepare_for_json(struct) when is_job(struct) do
-    %{
-      name: struct.name,
-      pointCount: struct.count,
-      p: struct.distance,
-      width: elem(struct.resolution, 0),
-      height: elem(struct.resolution, 1),
-      mainPoints: Enum.map(struct.mainPoints, fn {x, y} -> %{x: x, y: y} end)
-    }
+  @impl Ekser.Serializable
+  def get_kv(struct) when is_job(struct) do
+    {struct.name, struct}
   end
 
-  @spec create_from_line(String.t()) :: tuple()
+  @spec create_from_line(String.t()) :: {:ok, %__MODULE__{}} | {:error, String.t()}
   def create_from_line(line) when is_binary(line) do
     with [name, count_string, distance_string, resolution_string, points_string] <-
            String.split(line),
@@ -72,51 +61,26 @@ defmodule Ekser.Job do
            {is_distance(distance),
             "Job point distance must be a floating point number between 0 and 1 (inclusive)."},
          {true, _} <-
-           {is_point(resolution),
+           {Ekser.Point.is_point(resolution),
             "Job canvas resolution must be a pair of integers denoting width and height."},
-         {:ok, points} <- check_points(points) do
-      %__MODULE__{
-        name: name,
-        count: count,
-        distance: distance,
-        resolution: resolution,
-        points: points
-      }
+         {true, _} <- {Ekser.Point.valid_points?(points), "Not a valid list of points."} do
+      {:ok,
+       %__MODULE__{
+         name: name,
+         count: count,
+         distance: distance,
+         resolution: resolution,
+         points: points
+       }}
     else
       {false, message} ->
         {:error, message}
-
-      {:error, message} ->
-        {:error, message}
-    end
-  end
-
-  defp check_points(points) do
-    with {true, _} <- {is_list(points), "Not a valid list of points."},
-         {true, _} <-
-           {
-             Enum.all?(points, fn element -> is_point(element) end),
-             "Each point in the set of points must consist of 2 positive integers."
-           } do
-      {:ok, points}
-    else
-      {false, message} -> {:error, message}
     end
   end
 
   @spec find_job(list(%__MODULE__{}), String.t()) :: any()
   def find_job(jobs, job_name) when is_list(jobs) and is_binary(job_name) do
     Enum.find(jobs, fn element -> element.name === job_name end)
-  end
-
-  defp parse_point(string, separator)
-       when is_binary(string) and is_binary(separator) do
-    with [string_x, string_y] <- String.split(string, separator),
-         {{x, _}, {y, _}} <- {Integer.parse(string_x), Integer.parse(string_y)} do
-      {x, y}
-    else
-      _ -> :error
-    end
   end
 
   defp parse_count(string) when is_binary(string) do
@@ -138,7 +102,7 @@ defmodule Ekser.Job do
   end
 
   defp parse_resolution(string) when is_binary(string) do
-    parseResult = parse_point(string, "x")
+    parseResult = Ekser.Point.parse_point(string, "x")
 
     case parseResult do
       {x, y} -> {:ok, {x, y}}
@@ -149,11 +113,26 @@ defmodule Ekser.Job do
   defp parse_points(string) do
     string_pairs = String.split(string, "|")
 
-    points = for string_pair <- string_pairs, do: parse_point(string_pair, ",")
+    points = for string_pair <- string_pairs, do: Ekser.Point.parse_point(string_pair, ",")
 
     case Enum.any?(points, fn element -> element === :error end) do
       true -> {:error, "Failed to parse points."}
       false -> {:ok, points}
     end
+  end
+end
+
+defimpl Jason.Encoder, for: Ekser.Job do
+  def encode(value, opts) do
+    map = %{
+      name: value.name,
+      pointCount: value.count,
+      p: value.distance,
+      width: elem(value.resolution, 0),
+      height: elem(value.resolution, 1),
+      mainPoints: Enum.map(value.mainPoints, fn {x, y} -> %{x: x, y: y} end)
+    }
+
+    Jason.Encode.map(map, opts)
   end
 end

@@ -14,6 +14,7 @@
 # kao PNG.
 # ● stop X - Zaustavlja izračunavanje za posao X. Fraktal u potpunosti nestaje iz sistema, i
 # čvorovi se preraspoređuju na druge poslove.
+# ● pause T - Čeka T milisekundi pre nego što pročita sledeću komandu.
 # ● quit - Uredno gašenje čvora
 defmodule Ekser.Commander do
   require Ekser.Command
@@ -66,7 +67,7 @@ defmodule Ekser.Commander do
       |> String.trim()
       |> String.split()
 
-    retrieved_command = Ekser.Command.get_command(read_input, jobs)
+    retrieved_command = Ekser.Command.resolve_command(read_input, jobs, output)
 
     new_jobs =
       case retrieved_command do
@@ -106,7 +107,7 @@ defmodule Ekser.Commander do
   end
 
   defp is_unique(jobs, job) when Ekser.Job.is_job(job) do
-    duplicate = Ekser.Job.find_job(jobs, job)
+    duplicate = Ekser.Job.find_job(jobs, job.name)
 
     case duplicate do
       nil -> true

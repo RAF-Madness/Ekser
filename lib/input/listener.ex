@@ -1,5 +1,5 @@
 defmodule Ekser.Listener do
-  require Ekser.Util
+  require Ekser.TCP
   use Task
 
   def child_spec(opts) do
@@ -19,8 +19,8 @@ defmodule Ekser.Listener do
     Task.start_link(__MODULE__, :run, [port])
   end
 
-  def run(port) when Ekser.Util.is_tcp_port(port) do
-    {:ok, socket} = :gen_tcp.listen(port, Ekser.Util.socket_options())
+  def run(port) when Ekser.TCP.is_tcp_port(port) do
+    {:ok, socket} = :gen_tcp.listen(port, Ekser.TCP.socket_options())
     listen(socket)
   end
 

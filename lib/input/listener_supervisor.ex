@@ -1,5 +1,5 @@
 defmodule Ekser.ListenerSup do
-  require Ekser.Util
+  require Ekser.TCP
   use Supervisor
 
   def child_spec(opts) do
@@ -13,7 +13,7 @@ defmodule Ekser.ListenerSup do
     }
   end
 
-  def start_link(port, opts) when Ekser.Util.is_tcp_port(port) and is_list(opts) do
+  def start_link(port, opts) when Ekser.TCP.is_tcp_port(port) and is_list(opts) do
     {port, just_opts} = Keyword.pop!(opts, :value)
     Supervisor.start_link(__MODULE__, port, just_opts)
   end
