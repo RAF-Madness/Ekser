@@ -7,40 +7,44 @@ defmodule Ekser.Router do
 
   # Client API
 
+  @spec update_curr(atom(), %Ekser.Node{}) :: :ok
   def update_curr(server, node) when Ekser.Node.is_node(node) do
     GenServer.call(server, {:curr, node})
   end
 
+  @spec receive_contact(atom(), %Ekser.Node{}) :: :ok
   def receive_contact(server, node) when Ekser.Node.is_node(node) do
     set_prev(server, node)
   end
 
+  @spec introduce_new(atom(), %Ekser.Node{}) :: :ok
+  def introduce_new(server, node) do
+    GenServer.call(server, {:introduce, node})
+  end
+
+  @spec add_cluster_neighbour(atom(), %Ekser.Node{}) :: :ok
   def add_cluster_neighbour(server, node) when Ekser.Node.is_node(node) do
     GenServer.call(server, {:cluster_neighbours, node})
   end
 
+  @spec set_prev(atom(), %Ekser.Node{}) :: :ok
   def set_prev(server, node) when Ekser.Node.is_node(node) do
     GenServer.call(server, {:prev, node})
   end
 
+  @spec set_next(atom(), %Ekser.Node{}) :: :ok
   def set_next(server, node) when Ekser.Node.is_node(node) do
     GenServer.call(server, {:next, node})
   end
 
-  def introduce_new(server, id, table) do
-    GenServer.call(server, {:assign_next, id, table})
-  end
-
+  @spec forward(atom(), %Ekser.Message{}) :: :ok
   def forward(server, message) when Ekser.Message.is_message(message) do
     GenServer.cast(server, {:forward, message})
   end
 
-  def send(server, node) when Ekser.Node.is_node(node) do
-    GenServer.cast(server, {:send, node})
-  end
-
-  def hail(server) do
-    GenServer.call(server, :hail)
+  @spec send(atom(), function()) :: :ok
+  def send(server, closure) when is_function(closure) do
+    GenServer.cast(server, {:send, closure})
   end
 
   # Server Functions
@@ -72,6 +76,12 @@ defmodule Ekser.Router do
   end
 
   @impl GenServer
+  def handle_call({:introduce, node}, _from, table) do
+    new_node = Ekser.Node.new(table.curr.id + 1, node.ip, node.port, "", "")
+    {:reply, :ok, %Ekser.RouteTable{table | next: new_node}}
+  end
+
+  @impl GenServer
   def handle_call({:bootstrap, closure}, _from, table) do
     closure.(table.curr, table.bootstrap)
     {:reply, :ok, table}
@@ -93,8 +103,9 @@ defmodule Ekser.Router do
     message_list = closure.(table.curr)
 
     for message <- message_list,
-        {:ok, route_to} <- Ekser.RouteTable.get_next(table, message.receiver) do
-      send(message, route_to.ip, route_to.port)
+        appended_message <- Ekser.Message.append_route(message, table.curr.id),
+        {:ok, route_to} <- Ekser.RouteTable.get_next(table, appended_message.receiver) do
+      send(appended_message, route_to.ip, route_to.port)
     end
 
     {:noreply, table}

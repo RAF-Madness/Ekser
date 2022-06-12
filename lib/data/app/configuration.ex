@@ -13,43 +13,47 @@ defmodule Ekser.Config do
   @enforce_keys [:port, :bootstrap, :weak_timeout, :strong_timeout, :jobs]
   defstruct @enforce_keys
 
-  defguardp is_config(term) when is_struct(term, __MODULE__)
-
   defguardp is_timeout(term) when is_integer(term) and term > 0
 
   @spec read_config(String.t()) :: struct()
   def read_config(file) do
     response =
-      Path.expand(file)
+      file
+      |> Path.expand()
       |> File.read!()
       |> Jason.decode!()
       |> create_from_json()
 
     case response do
-      {:ok, config} -> config
       {:error, message} -> exit(message)
+      config when is_struct(config, __MODULE__) -> config
     end
   end
 
   @impl Ekser.Serializable
   def create_from_json(json) when is_map(json) do
     port = json["port"]
+
+    bootstrap_ip =
+      json["bootstrapIpAddress"]
+      |> Ekser.TCP.to_ip()
+
+    bootstrap_port = json["bootstrapPort"]
+
     weak_timeout = json["weakLimit"]
     strong_timeout = json["strongLimit"]
 
-    with {:ok, ip} <- Ekser.TCP.to_ip(json["bootstrapIpAddress"]),
-         {:ok, bootstrap} <- Ekser.Node.new(-1, ip, json["bootstrapPort"], "", ""),
-         {:ok, jobs} <- json["jobs"] |> Ekser.Serializable.json_list_to_map(Ekser.Job) do
-      new(port, bootstrap, weak_timeout, strong_timeout, jobs)
-    else
-      {:error, message} -> {:error, message}
-      _ -> {:error, "Failed to parse configuration."}
-    end
-  end
+    jobs =
+      json["jobs"]
+      |> Ekser.Serializable.to_struct_map(Ekser.Job, fn job -> {job.name, job} end)
 
-  @impl Ekser.Serializable
-  def get_kv(struct) when is_config(struct) do
-    {struct.port, struct}
+    new(
+      port,
+      Ekser.Node.new(-1, bootstrap_ip, bootstrap_port, "", ""),
+      weak_timeout,
+      strong_timeout,
+      jobs
+    )
   end
 
   defp new(port, bootstrap, weak_timeout, strong_timeout, jobs) do
@@ -62,14 +66,13 @@ defmodule Ekser.Config do
          {true, _} <- {is_timeout(strong_timeout), "Strong timeout must be a positive integer."},
          {true, _} <-
            {Ekser.Serializable.valid_map?(jobs, Ekser.Job), "Jobs must be a valid job map."} do
-      {:ok,
-       %__MODULE__{
-         port: port,
-         bootstrap: bootstrap,
-         weak_timeout: weak_timeout,
-         strong_timeout: strong_timeout,
-         jobs: jobs
-       }}
+      %__MODULE__{
+        port: port,
+        bootstrap: bootstrap,
+        weak_timeout: weak_timeout,
+        strong_timeout: strong_timeout,
+        jobs: jobs
+      }
     else
       {false, message} ->
         {:error, message}
@@ -85,7 +88,7 @@ defimpl Jason.Encoder, for: Ekser.Config do
       bootstrapPort: value.bootstrap.port,
       weakLimit: value.watchdog_timeout,
       strongLimit: value.failure_timeout,
-      jobs: value.jobs.values
+      jobs: value.jobs
     }
 
     Jason.Encode.map(map, opts)

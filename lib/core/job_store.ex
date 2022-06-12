@@ -1,4 +1,5 @@
 defmodule Ekser.JobStore do
+  require Ekser.DHT
   use Agent
 
   # Client API
@@ -8,18 +9,27 @@ defmodule Ekser.JobStore do
     Agent.start_link(__MODULE__, :init, [jobs], just_opts)
   end
 
+  @spec get_all_jobs(atom()) :: %{String.t() => %Ekser.Job{}}
+  def get_all_jobs(agent) do
+    Agent.get(agent, __MODULE__, :get_jobs, [])
+  end
+
+  @spec job_exists?(atom(), String.t()) :: boolean()
   def job_exists?(agent, job_name) do
     Agent.get(agent, __MODULE__, :has_job?, [job_name])
   end
 
+  @spec get_job_by_name(atom(), String.t()) :: %Ekser.Job{} | nil
   def get_job_by_name(agent, job_name) do
     Agent.get(agent, __MODULE__, :get_job, [job_name])
   end
 
-  def receive_system(agent, system_jobs) do
-    Agent.update(agent, __MODULE__, :merge_jobs, [system_jobs])
+  @spec receive_system(atom(), %Ekser.DHT{}) :: :ok
+  def receive_system(agent, dht) do
+    Agent.update(agent, __MODULE__, :merge_jobs, [dht.jobs])
   end
 
+  @spec receive_job(atom(), %Ekser.Job{}) :: :ok | :error
   def receive_job(agent, job) do
     Agent.get_and_update(agent, __MODULE__, :add_job, [job])
   end
@@ -32,6 +42,10 @@ defmodule Ekser.JobStore do
 
   def has_job?(jobs, job_name) do
     Map.has_key?(jobs, job_name)
+  end
+
+  def get_jobs(jobs) do
+    jobs
   end
 
   def get_job(jobs, job_name) do

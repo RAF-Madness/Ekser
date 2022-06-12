@@ -28,26 +28,23 @@ defmodule Ekser.Node do
     new(id, ip, port, fractal_id, job_name)
   end
 
-  @impl Ekser.Serializable
-  def get_kv(struct) when is_node(struct) do
-    {struct.id, struct}
-  end
-
+  @spec new(integer(), tuple(), pos_integer(), String.t(), String.t()) ::
+          %__MODULE__{} | {:error, String.t()}
   def new(id, ip, port, fractal_id, job_name) do
     with {true, _} <- {is_integer(id), "Node ID must be an integer."},
          {true, _} <-
-           {Ekser.TCP.is_tcp_ip(ip),
-            "Node IP must be a valid IP address represented as a tuple of integers."},
+           {Ekser.TCP.is_tcp_ip(ip), "Node IP must be a valid IP address."},
          {true, _} <- {Ekser.TCP.is_tcp_port(port), Ekser.TCP.port_prompt()},
          {true, _} <- {is_binary(fractal_id), "Fractal ID must be a string."},
          {true, _} <- {is_binary(job_name), "Job name must be a string."} do
-      {:ok, %__MODULE__{id: id, ip: ip, port: port, fractal_id: fractal_id, job_name: job_name}}
+      %__MODULE__{id: id, ip: ip, port: port, fractal_id: fractal_id, job_name: job_name}
     else
       {false, message} ->
         {:error, message}
     end
   end
 
+  @spec equal?(%__MODULE__{}, %__MODULE__{}) :: true | false
   def equal?(node1, node2) when is_node(node1) and is_node(node2) do
     node1.id === node2.id or (node1.ip === node2.ip and node1.port === node2.port)
   end

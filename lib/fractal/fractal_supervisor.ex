@@ -1,5 +1,5 @@
 defmodule Ekser.FractalSup do
-  use Supervisor
+  use DynamicSupervisor
 
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, :ok, opts)
@@ -7,8 +7,6 @@ defmodule Ekser.FractalSup do
 
   @impl true
   def init(:ok) do
-    children = []
-
-    Supervisor.init(children, strategy: :rest_for_one)
+    DynamicSupervisor.init(strategy: :one_for_one)
   end
 end

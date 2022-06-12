@@ -1,7 +1,7 @@
 defmodule Ekser.RouteTable do
   require Ekser.Node
 
-  @enforce_keys [:curr]
+  @enforce_keys [:bootstrap, :curr]
   defstruct [
     :bootstrap,
     :curr,

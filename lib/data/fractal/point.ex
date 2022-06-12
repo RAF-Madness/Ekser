@@ -19,4 +19,20 @@ defmodule Ekser.Point do
       _ -> :error
     end
   end
+
+  @spec from_json(list(map())) :: list(tuple())
+  def from_json(list) do
+    with true <- is_list(list),
+         stream <- Stream.map(list, fn element -> {element["x"], element["y"]} end),
+         nil <- Enum.find(stream, fn {x, y} -> x === nil or y === nil end) do
+      Enum.to_list(stream)
+    else
+      _ -> :error
+    end
+  end
+
+  @spec to_json(list(tuple())) :: list(map())
+  def to_json(list) do
+    Enum.map(list, fn {x, y} -> %{x: x, y: y} end)
+  end
 end

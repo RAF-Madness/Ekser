@@ -1,5 +1,6 @@
 defmodule Ekser.Listener do
   require Ekser.TCP
+  require Ekser.Message
   use Task
 
   def child_spec(opts) do
@@ -31,10 +32,28 @@ defmodule Ekser.Listener do
   end
 
   defp serve(socket, _) do
-    socket
-    |> read()
-    |> Jason.decode!()
-    |> Ekser.Message.create_from_json()
+    utf =
+      socket
+      |> read()
+
+    :ok = :gen_tcp.close(socket)
+
+    message =
+      utf
+      |> Jason.decode!()
+      |> Ekser.Message.create_from_json()
+      |> Ekser.Message.send_effect()
+
+    case message do
+      :ok ->
+        :ok
+
+      closure when is_function(closure) ->
+        Ekser.Router.send(Ekser.Router, closure)
+
+      message when Ekser.Message.is_message(message) ->
+        Ekser.Router.forward(Ekser.Router, message)
+    end
   end
 
   defp read(socket) do

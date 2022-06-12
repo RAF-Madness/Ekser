@@ -11,7 +11,7 @@ defmodule Ekser.Job do
   @behaviour Ekser.Serializable
 
   @enforce_keys [:name, :count, :distance, :resolution, :points]
-  defstruct [:name, :count, :distance, :resolution, :points]
+  defstruct @enforce_keys
 
   defguard is_job(term) when is_struct(term, __MODULE__)
 
@@ -28,14 +28,9 @@ defmodule Ekser.Job do
 
     points =
       json["mainPoints"]
-      |> Enum.map(fn element -> {element["x"], element["y"]} end)
+      |> Ekser.Point.from_json()
 
     new(name, count, distance, resolution, points)
-  end
-
-  @impl Ekser.Serializable
-  def get_kv(struct) when is_job(struct) do
-    {struct.name, struct}
   end
 
   @spec create_from_line(String.t()) :: {:ok, %__MODULE__{}} | {:error, String.t()}
@@ -64,14 +59,13 @@ defmodule Ekser.Job do
            {Ekser.Point.is_point(resolution),
             "Job canvas resolution must be a pair of integers denoting width and height."},
          {true, _} <- {Ekser.Point.valid_points?(points), "Not a valid list of points."} do
-      {:ok,
-       %__MODULE__{
-         name: name,
-         count: count,
-         distance: distance,
-         resolution: resolution,
-         points: points
-       }}
+      %__MODULE__{
+        name: name,
+        count: count,
+        distance: distance,
+        resolution: resolution,
+        points: points
+      }
     else
       {false, message} ->
         {:error, message}
@@ -125,7 +119,7 @@ defimpl Jason.Encoder, for: Ekser.Job do
       p: value.distance,
       width: elem(value.resolution, 0),
       height: elem(value.resolution, 1),
-      mainPoints: Enum.map(value.mainPoints, fn {x, y} -> %{x: x, y: y} end)
+      mainPoints: Ekser.Point.to_json(value.points)
     }
 
     Jason.Encode.map(map, opts)

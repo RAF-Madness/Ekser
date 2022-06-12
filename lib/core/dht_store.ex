@@ -1,6 +1,7 @@
 defmodule Ekser.DHTStore do
   require Ekser.TCP
   require Ekser.Node
+  require Ekser.DHT
   use Agent
 
   # Client API
@@ -10,37 +11,51 @@ defmodule Ekser.DHTStore do
     Agent.start_link(__MODULE__, :init, [curr], just_opts)
   end
 
-  def introduce_new(agent, node) when Ekser.Node.is_node(node) do
+  @spec introduce_new(atom()) :: %{
+          id: pos_integer(),
+          nodes: %{pos_integer() => %Ekser.Node{}}
+        }
+  def introduce_new(agent) do
     nodes = Agent.get(agent, __MODULE__, :get_nodes, [])
-    %{id: nodes.curr.id + 1, nodes: nodes}
+    {_, popped_nodes} = Map.pop!(nodes, :curr)
+    %{id: nodes.curr.id + 1, nodes: popped_nodes}
   end
 
+  @spec enter_network(atom(), %Ekser.Node{}) :: :ok
   def enter_network(agent, node) when Ekser.Node.is_node(node) do
     Agent.update(agent, __MODULE__, :add_node, [node])
   end
 
+  @spec change_cluster(atom(), %Ekser.Node{}) :: :ok
   def change_cluster(agent, node) when Ekser.Node.is_node(node) do
     Agent.update(agent, __MODULE__, :update_node, [node])
   end
 
+  @spec leave_network(atom(), %Ekser.Node{}) :: :ok
   def leave_network(agent, node) when Ekser.Node.is_node(node) do
     Agent.update(agent, __MODULE__, :remove_node, [node])
   end
 
-  def receive_system(agent, id, nodes) when is_integer(id) and is_map(nodes) do
-    case Ekser.Serializable.valid_map?(nodes, Ekser.Node) do
-      true -> Agent.update(agent, __MODULE__, :set_system, [id, nodes])
-      false -> {:error, "Not a valid node map."}
-    end
+  @spec receive_system(atom(), %Ekser.DHT{}) ::
+          %Ekser.Node{} | {:error, String.t()}
+  def receive_system(agent, dht) do
+    Agent.get_and_update(agent, __MODULE__, :set_system, [dht.id, dht.nodes])
   end
 
+  @spec get_nodes_by_criteria(atom(), String.t(), String.t()) :: list(%Ekser.Node{})
   def get_nodes_by_criteria(agent, job_name, fractal_id)
       when is_binary(job_name) and is_binary(fractal_id) do
     Agent.get(agent, __MODULE__, :get_nodes, [job_name, fractal_id])
   end
 
+  @spec get_nodes_by_criteria(atom(), String.t()) :: list(%Ekser.Node{})
   def get_nodes_by_criteria(agent, job_name) when is_binary(job_name) do
     Agent.get(agent, __MODULE__, :get_nodes, [job_name])
+  end
+
+  @spec get_all_nodes(atom()) :: %{pos_integer() => %Ekser.Node{}}
+  def get_all_nodes(agent) do
+    Agent.get(agent, __MODULE__, :get_nodes, [])
   end
 
   # Server Functions
@@ -83,8 +98,11 @@ defmodule Ekser.DHTStore do
   def set_system(nodes, id, system_nodes) do
     curr = %Ekser.Node{nodes.curr | id: id}
 
-    Map.merge(nodes, system_nodes)
-    |> Map.put(curr.id, curr)
-    |> Map.put(:curr, curr)
+    new_nodes =
+      Map.merge(nodes, system_nodes)
+      |> Map.put(curr.id, curr)
+      |> Map.put(:curr, curr)
+
+    {new_nodes[0], new_nodes}
   end
 end

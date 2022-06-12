@@ -1,23 +1,26 @@
 defmodule Ekser.Serializable do
-  @callback create_from_json(json :: map()) :: {:ok, struct()} | {:error, String.t()}
-  @callback get_kv(struct :: struct()) :: tuple()
-  @optional_callbacks get_kv: 1
+  @callback create_from_json(json :: map()) :: struct() | {:error, String.t()}
 
-  defguardp is_error?(term) when is_tuple(term) and elem(term, 0) === :error
+  def valid_map?(map, module) when is_atom(module) do
+    is_map(map) and Enum.all?(Map.values(map), fn element -> is_struct(element, module) end)
+  end
 
-  def json_list_to_map(list, module) when is_list(list) and is_atom(module) do
-    with {true, _} <-
-           {function_exported?(module, :get_kv, 1), "Module does not support mapping."},
-         objects <- for(object <- list, do: module.create_from_json(object)),
-         nil <- Enum.find(objects, &is_error?/1) do
-      {:ok, Enum.into(objects, %{}, fn {:ok, object} -> module.get_kv(object) end)}
-    else
-      {:error, message} -> {:error, message}
-      {false, message} -> {:error, message}
+  @spec to_struct_map(map() | list(), atom(), (struct() -> tuple())) :: map() | :error
+  def to_struct_map(map, module, kv) when is_map(map) do
+    stream = Stream.map(Map.values(map), fn element -> module.create_from_json(element) end)
+
+    case Enum.find(stream, fn element -> is_struct(element, module) end) do
+      nil -> Enum.into(stream, %{}, fn element -> kv.(element) end)
+      _ -> :error
     end
   end
 
-  def valid_map?(map, module) when is_atom(module) do
-    is_map(map) and Enum.all?(map.values, fn element -> is_struct(element, module) end)
+  def to_struct_map(list, module, kv) do
+    stream = Stream.map(list, fn element -> module.create_from_json(element) end)
+
+    case Enum.find(stream, fn element -> is_struct(element, module) end) do
+      nil -> Enum.into(stream, %{}, fn element -> kv.(element) end)
+      _ -> :error
+    end
   end
 end

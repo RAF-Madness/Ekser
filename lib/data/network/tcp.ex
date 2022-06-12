@@ -28,7 +28,7 @@ defmodule Ekser.TCP do
     "Port must be a valid port number, an integer between 1024 and 65535 (inclusive)."
   end
 
-  @spec to_ip(String.t()) :: {:ok, tuple()} | {:error, String.t()}
+  @spec to_ip(String.t()) :: tuple() | :error
   def to_ip(ip_string) do
     with true <- is_binary(ip_string),
          fragments <- String.split(ip_string, "."),
@@ -38,17 +38,23 @@ defmodule Ekser.TCP do
          parse_results <- Enum.map(parsed, &elem(&1, 0)),
          ip <- List.to_tuple(parse_results),
          true <- is_tcp_ip(ip) do
-      {:ok, ip}
+      ip
     else
-      _ -> {:error, "Failed to parse IP address."}
+      _ -> :error
     end
   end
 
   @spec from_ip(tuple()) :: String.t()
-  def from_ip(ip) when is_tcp_ip(ip) do
-    ip
-    |> Tuple.to_list()
-    |> Enum.join(".")
+  def from_ip(ip) do
+    case is_binary(ip) do
+      true ->
+        ip
+        |> Tuple.to_list()
+        |> Enum.join(".")
+
+      false ->
+        :error
+    end
   end
 
   @spec socket_options() :: list()
