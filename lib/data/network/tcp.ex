@@ -23,12 +23,15 @@ defmodule Ekser.TCP do
 
   defguard is_tcp_port(term) when is_integer(term) and term >= 1024 and term <= 65535
 
+  @spec port_prompt() :: String.t()
   def port_prompt() do
     "Port must be a valid port number, an integer between 1024 and 65535 (inclusive)."
   end
 
-  def to_ip(ip_string) when is_binary(ip_string) do
-    with fragments <- String.split(ip_string, "."),
+  @spec to_ip(String.t()) :: {:ok, tuple()} | {:error, String.t()}
+  def to_ip(ip_string) do
+    with true <- is_binary(ip_string),
+         fragments <- String.split(ip_string, "."),
          parsed <- Enum.map(fragments, &Integer.parse(&1)),
          true <-
            Enum.all?(parsed, fn element -> is_tuple(element) and tuple_size(element) === 2 end),
@@ -41,17 +44,24 @@ defmodule Ekser.TCP do
     end
   end
 
-  def to_ip(_) do
-    {:error, "Failed to parse IP address."}
-  end
-
+  @spec from_ip(tuple()) :: String.t()
   def from_ip(ip) when is_tcp_ip(ip) do
     ip
     |> Tuple.to_list()
     |> Enum.join(".")
   end
 
+  @spec socket_options() :: list()
   def socket_options() do
     [:binary, packet: :raw, active: false, reuseaddr: true]
+  end
+
+  @spec send(String.t(), tuple(), pos_integer()) :: :ok
+  def send(message, ip, port) do
+    {:ok, socket} = :gen_tcp.connect(ip, port, socket_options())
+
+    :gen_tcp.send(socket, message)
+
+    :gen_tcp.close(socket)
   end
 end

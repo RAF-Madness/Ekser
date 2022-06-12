@@ -30,11 +30,23 @@ defmodule Ekser.Supervisor do
   defp children() do
     config = Ekser.Config.read_config("config.json")
 
+    ip =
+      System.cmd("nslookup", ["myip.opendns.com", "resolver1.opendns.com"])
+      |> elem(0)
+      |> String.split()
+      |> Enum.at(7)
+      |> Ekser.TCP.to_ip()
+
+    curr = Ekser.Node.new(-2, ip, config.port, "", "")
+
     [
-      # Ekser.DHT.child_spec(value: {config.port, config.bootstrap}, name: Ekser.DHT),
       Task.Supervisor.child_spec(name: Ekser.SenderSup),
-      Ekser.Sender.child_spec(name: Ekser.Sender),
-      Ekser.AggregatorSup.child_spec(name: Ekser.AggregateSup),
+      Ekser.Router.child_spec(name: Ekser.Router),
+      Ekser.DHTStore.child_spec(value: curr, name: Ekser.DHTStore),
+      Ekser.JobStore.child_spec(value: config.jobs, name: Ekser.JobStore),
+      Ekser.FractalServ.child_spec(name: Ekser.FractalServ),
+      Ekser.FractalSup.child_spec(name: Ekser.FractalSup),
+      Ekser.AggregateSup.child_spec(name: Ekser.AggregateSup),
       Registry.child_spec(keys: :unique, name: AggregatorRegistry),
       Ekser.AggregateServ.child_spec(name: Ekser.AggregateServ),
       Ekser.InputSup.child_spec(value: config, name: Ekser.InputSup)

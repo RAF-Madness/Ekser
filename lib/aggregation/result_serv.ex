@@ -1,4 +1,5 @@
 defmodule Ekser.ResultServ do
+  require Ekser.DHTStore
   use GenServer, restart: :transient
 
   # Client API
@@ -58,15 +59,16 @@ defmodule Ekser.ResultServ do
 
   @impl GenServer
   def handle_continue(:id, {name, printer, job}) do
+    Ekser.DHTStore.get_nodes_by_criteria(Ekser.DHTStore, job.name)
     # Send messages
     {:noreply, new_state(name, job.resolution, printer, nil)}
   end
 
   @impl GenServer
-  def handle_continue(:job, {name, printer, job, _}) do
-    map = %{}
+  def handle_continue(:job, {name, printer, job, fractal_id}) do
+    Ekser.DHTStore.get_nodes_by_criteria(Ekser.DHTStore, job.name, fractal_id)
     # Send messages
-    {:noreply, new_state(name, job.resolution, printer, map)}
+    {:noreply, new_state(name, job.resolution, printer, %{})}
   end
 
   @impl GenServer

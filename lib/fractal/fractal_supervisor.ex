@@ -9,6 +9,6 @@ defmodule Ekser.FractalSup do
   def init(:ok) do
     children = []
 
-    Supervisor.init(children, strategy: :rest_for_one, name: Fractal.Supervisor)
+    Supervisor.init(children, strategy: :rest_for_one)
   end
 end

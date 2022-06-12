@@ -78,11 +78,6 @@ defmodule Ekser.Job do
     end
   end
 
-  @spec find_job(list(%__MODULE__{}), String.t()) :: any()
-  def find_job(jobs, job_name) when is_list(jobs) and is_binary(job_name) do
-    Enum.find(jobs, fn element -> element.name === job_name end)
-  end
-
   defp parse_count(string) when is_binary(string) do
     parseResult = Integer.parse(string)
 

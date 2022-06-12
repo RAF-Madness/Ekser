@@ -13,12 +13,12 @@ defmodule Ekser.ListenerSup do
     }
   end
 
-  def start_link(port, opts) when Ekser.TCP.is_tcp_port(port) and is_list(opts) do
+  def start_link(opts) do
     {port, just_opts} = Keyword.pop!(opts, :value)
     Supervisor.start_link(__MODULE__, port, just_opts)
   end
 
-  @impl true
+  @impl Supervisor
   def init(port) do
     sup_flags = %{
       strategy: :rest_for_one,
@@ -32,7 +32,7 @@ defmodule Ekser.ListenerSup do
 
   defp children(port) do
     [
-      Task.Supervisor.child_spec(name: Ekser.MessageSup),
+      Task.Supervisor.child_spec(name: Ekser.ReceiverSup),
       Ekser.Listener.child_spec(value: port)
     ]
   end

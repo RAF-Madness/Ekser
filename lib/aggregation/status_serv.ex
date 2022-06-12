@@ -1,4 +1,5 @@
 defmodule Ekser.StatusServ do
+  require Ekser.DHTStore
   require Ekser.Status
   use GenServer, restart: :transient
 
@@ -35,12 +36,14 @@ defmodule Ekser.StatusServ do
 
   @impl GenServer
   def handle_continue(:id, state = {_, job, fractal_id}) do
+    Ekser.DHTStore.get_nodes_by_criteria(Ekser.DHTStore, job, fractal_id)
     # Send messages
     {:noreply, state}
   end
 
   @impl GenServer
   def handle_continue(:job, state = {_, job}) do
+    Ekser.DHTStore.get_nodes_by_criteria(Ekser.DHTStore, job)
     # Send messages
     {:noreply, state}
   end

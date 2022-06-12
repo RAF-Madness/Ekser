@@ -15,7 +15,6 @@ defmodule Ekser.Listener do
 
   def start_link(opts) do
     {port, _} = Keyword.pop!(opts, :value)
-    # Wrapping port in [] needed because of Task.start_link definition
     Task.start_link(__MODULE__, :run, [port])
   end
 
@@ -26,7 +25,7 @@ defmodule Ekser.Listener do
 
   defp listen(socket) do
     {:ok, client} = :gen_tcp.accept(socket)
-    {:ok, pid} = Task.Supervisor.start_child(Ekser.MessageSup, fn -> serve(client, self()) end)
+    {:ok, pid} = Task.Supervisor.start_child(Ekser.ReceiverSup, fn -> serve(client, self()) end)
     :ok = :gen_tcp.controlling_process(client, pid)
     listen(socket)
   end

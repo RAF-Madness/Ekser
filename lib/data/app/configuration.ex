@@ -38,7 +38,7 @@ defmodule Ekser.Config do
     strong_timeout = json["strongLimit"]
 
     with {:ok, ip} <- Ekser.TCP.to_ip(json["bootstrapIpAddress"]),
-         {:ok, bootstrap} <- Ekser.Node.new(-1, ip, json["bootstrapPort"]),
+         {:ok, bootstrap} <- Ekser.Node.new(-1, ip, json["bootstrapPort"], "", ""),
          {:ok, jobs} <- json["jobs"] |> Ekser.Serializable.json_list_to_map(Ekser.Job) do
       new(port, bootstrap, weak_timeout, strong_timeout, jobs)
     else

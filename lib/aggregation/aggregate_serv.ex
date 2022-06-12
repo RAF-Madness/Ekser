@@ -1,4 +1,5 @@
 defmodule Ekser.AggregateServ do
+  require Ekser.AggregateSup
   require Ekser.StatusServ
   require Ekser.ResultServ
   use GenServer
@@ -23,7 +24,7 @@ defmodule Ekser.AggregateServ do
   @impl GenServer
   def handle_cast({:status, args}, {status, result}) do
     Ekser.StatusServ.child_spec([status | args])
-    |> Ekser.AggregatorSup.start_child(Ekser.AggregatorSup)
+    |> Ekser.AggregateSup.start_child(Ekser.AggregateSup)
 
     {:noreply, {status + 1, result}}
   end
@@ -31,7 +32,7 @@ defmodule Ekser.AggregateServ do
   @impl GenServer
   def handle_cast({:result, args}, {status, result}) do
     Ekser.ResultServ.child_spec([result | args])
-    |> Ekser.AggregatorSup.start_child(Ekser.AggregatorSup)
+    |> Ekser.AggregateSup.start_child(Ekser.AggregateSup)
 
     {:noreply, {status, result + 1}}
   end
