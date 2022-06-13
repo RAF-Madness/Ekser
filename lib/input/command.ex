@@ -31,12 +31,12 @@ defmodule Ekser.Command do
     end
   end
 
-  def resolve_job_name(arg, _) when is_binary(arg) do
-    found = Ekser.JobStore.job_exists?(arg)
+  def resolve_job(arg, _) when is_binary(arg) do
+    found_job = Ekser.JobStore.get_job_by_name(arg)
 
-    case found do
-      false -> {:error, "Failed to find job called #{arg}."}
-      true -> arg
+    case found_job do
+      nil -> {:error, "Failed to find job called #{arg}."}
+      _ -> found_job
     end
   end
 

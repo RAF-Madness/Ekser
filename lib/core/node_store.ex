@@ -42,13 +42,8 @@ defmodule Ekser.NodeStore do
     Agent.get_and_update(Ekser.NodeStore, Ekser.NodeMap, :set_system, [dht.id, dht.nodes])
   end
 
-  @spec get_nodes_by_criteria(list(String.t())) :: list(%Ekser.Node{})
-  def get_nodes_by_criteria(arg_list) do
+  @spec get_nodes(list(String.t())) :: %{pos_integer() => %Ekser.Node{}}
+  def get_nodes(arg_list) do
     Agent.get(Ekser.NodeStore, Ekser.NodeMap, :get_nodes, arg_list)
-  end
-
-  @spec get_all_nodes() :: %{pos_integer() => %Ekser.Node{}}
-  def get_all_nodes() do
-    Agent.get(Ekser.NodeStore, Ekser.NodeMap, :get_nodes, [])
   end
 end

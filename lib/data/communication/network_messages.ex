@@ -34,8 +34,14 @@ defmodule Ekser.Message.ConnectionResponse do
   def send_effect(message) do
     :ok = Ekser.Router.set_next(message.sender)
 
+    {curr, nodes} =
+      Ekser.NodeStore.get_nodes([])
+      |> Map.pop!(:curr)
+
     closure =
-      Ekser.NodeStore.get_all_nodes()
+      nodes
+      |> Map.pop(curr.id)
+      |> elem(1)
       |> Map.values()
       |> Ekser.Message.Entered.new(nil)
 
@@ -129,7 +135,7 @@ defmodule Ekser.Message.Quit do
   end
 end
 
-defmodule Ekser.Message.Leave do
+defmodule Ekser.Message.Quit do
   @behaviour Ekser.Message
 
   @impl Ekser.Message

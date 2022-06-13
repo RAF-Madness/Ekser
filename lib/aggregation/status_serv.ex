@@ -30,13 +30,37 @@ defmodule Ekser.StatusServ do
   end
 
   defp prepare(nodes, name, output, map) do
+    {curr, popped_nodes} = Map.pop(nodes, :curr)
+
+    {proper_nodes, start_info} =
+      case curr do
+        nil ->
+          {popped_nodes, nil}
+
+        node ->
+          {Map.pop!(popped_nodes, node.id), Ekser.FractalServ.get_progress()}
+      end
+
     :ok =
-      nodes
+      proper_nodes
+      |> Map.values()
       |> Ekser.Message.StatusRequest.new(name)
       |> Ekser.Router.send()
 
+    waiting_responses = Map.new(proper_nodes, fn {k, _} -> {k, nil} end)
+
     responses =
-      Enum.into(nodes, %{}, fn node -> {node.id, nil} end)
+      case start_info do
+        nil ->
+          waiting_responses
+
+        calculated ->
+          Map.put(
+            waiting_responses,
+            curr.id,
+            Ekser.Status.new(name, curr.job_name, curr.fractal_id, calculated)
+          )
+      end
       |> Map.merge(map)
 
     {:noreply, {name, output, responses}}
@@ -46,7 +70,7 @@ defmodule Ekser.StatusServ do
   def handle_continue(:init, [name, output, job_name, fractal_id]) do
     map = %{job: job_name, fractal_id: fractal_id}
 
-    Ekser.NodeStore.get_nodes_by_criteria([job_name, fractal_id])
+    Ekser.NodeStore.get_nodes([job_name, fractal_id])
     |> prepare(name, output, map)
   end
 
@@ -54,14 +78,13 @@ defmodule Ekser.StatusServ do
   def handle_continue(:init, [name, output, job_name]) do
     map = %{job: job_name}
 
-    Ekser.NodeStore.get_nodes_by_criteria([job_name])
+    Ekser.NodeStore.get_nodes([job_name])
     |> prepare(name, output, map)
   end
 
   @impl GenServer
   def handle_continue(:init, [name, output]) do
-    Ekser.NodeStore.get_all_nodes()
-    |> Map.values()
+    Ekser.NodeStore.get_nodes([])
     |> prepare(name, output, %{})
   end
 

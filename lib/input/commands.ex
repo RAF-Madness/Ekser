@@ -14,25 +14,25 @@ defmodule Ekser.Command.Status do
       "status",
       &status/2,
       [
-        {&Ekser.Command.resolve_job_name/2, true},
+        {&Ekser.Command.resolve_job/2, true},
         {&Ekser.Command.resolve_id/2, true}
       ],
       "status [X [id]]"
     )
   end
 
-  defp status(args = [_, job_name, id], output) do
-    GenServer.cast(Ekser.AggregateServ, {:status, [output | args]})
-    "Attempting to collect status for job #{job_name} and fractal ID #{id}"
+  defp status([job, id], output) do
+    GenServer.cast(Ekser.AggregateServ, {:status, [output, job.name, id]})
+    "Attempting to collect status for job #{job.name} and fractal ID #{id}"
   end
 
-  defp status(args = [_, job_name], output) do
-    GenServer.cast(Ekser.AggregateServ, {:status, [output | args]})
-    "Attempting to collect status for job #{job_name}"
+  defp status([job], output) do
+    GenServer.cast(Ekser.AggregateServ, {:status, [output, job.name]})
+    "Attempting to collect status for job #{job.name}"
   end
 
-  defp status(args = [_], output) do
-    GenServer.cast(Ekser.AggregateServ, {:status, [output | args]})
+  defp status([], output) do
+    GenServer.cast(Ekser.AggregateServ, {:status, [output]})
     "Attempting to collect status for all jobs"
   end
 end
@@ -52,7 +52,7 @@ defmodule Ekser.Command.Start do
     Ekser.Command.new(
       "start",
       &start/2,
-      [{&Ekser.Command.resolve_job_name/2, true}],
+      [{&Ekser.Command.resolve_job/2, true}],
       "start [X]"
     )
   end
@@ -98,21 +98,21 @@ defmodule Ekser.Command.Result do
       "result",
       &result/2,
       [
-        {&Ekser.Command.resolve_job_name/2, false},
+        {&Ekser.Command.resolve_job/2, false},
         {&Ekser.Command.resolve_id/2, true}
       ],
       "result X [id]"
     )
   end
 
-  defp result(args = [_, job_name, id], output) do
-    GenServer.cast(Ekser.AggregateServ, {:result, [output | args]})
-    "Attempting to generate fractal image for job #{job_name} and fractal ID #{id}"
+  defp result([job, id], output) do
+    GenServer.cast(Ekser.AggregateServ, {:result, [output, job, id]})
+    "Attempting to generate fractal image for job #{job.name} and fractal ID #{id}"
   end
 
-  defp result(args = [_, job_name], output) do
-    GenServer.cast(Ekser.AggregateServ, {:result, [output | args]})
-    "Attempting to generate fractal image for job #{job_name}"
+  defp result([job], output) do
+    GenServer.cast(Ekser.AggregateServ, {:result, [output, job]})
+    "Attempting to generate fractal image for job #{job.name}"
   end
 end
 
@@ -128,15 +128,15 @@ defmodule Ekser.Command.Stop do
     Ekser.Command.new(
       "stop",
       &stop/2,
-      [{&Ekser.Command.resolve_job_name/2, false}],
+      [{&Ekser.Command.resolve_job/2, false}],
       "stop X"
     )
   end
 
-  defp stop([job_name], _) do
-    Ekser.FractalServ.stop(job_name)
+  defp stop([job], _) do
+    Ekser.FractalServ.stop(job.name)
     # send message to worker
-    "Stopping job #{job_name}"
+    "Stopping job #{job.name}"
   end
 end
 

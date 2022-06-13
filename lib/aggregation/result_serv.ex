@@ -28,28 +28,47 @@ defmodule Ekser.ResultServ do
     {:ok, args, {:continue, :init}}
   end
 
-  defp prepare(nodes, name, output, job_name) do
-    job = Ekser.JobStore.get_job_by_name(job_name)
+  defp prepare(nodes, name, output, job) do
+    {curr, popped_nodes} = Map.pop(nodes, :curr)
+
+    {proper_nodes, start_info} =
+      case curr do
+        nil ->
+          {popped_nodes, nil}
+
+        node ->
+          {Map.pop!(popped_nodes, node.id), Ekser.FractalServ.get_work()}
+      end
 
     :ok =
-      nodes
+      proper_nodes
       |> Ekser.Message.ResultRequest.new(name)
       |> Ekser.Router.send()
 
-    responses = Enum.into(nodes, %{}, fn node -> {node.id, nil} end)
-    {:noreply, {name, output, job.resolution, responses, []}}
+    waiting_responses = Map.new(proper_nodes, fn {k, _} -> {k, nil} end)
+
+    {responses, points} =
+      case start_info do
+        nil ->
+          {waiting_responses, []}
+
+        _ ->
+          {waiting_responses, start_info}
+      end
+
+    {:noreply, {name, output, job.resolution, responses, points}}
   end
 
   @impl GenServer
-  def handle_continue(:id, [name, output, job_name]) do
-    Ekser.NodeStore.get_nodes_by_criteria([job_name])
-    |> prepare(name, output, job_name)
+  def handle_continue(:id, [name, output, job]) do
+    Ekser.NodeStore.get_nodes([job.name])
+    |> prepare(name, output, job)
   end
 
   @impl GenServer
-  def handle_continue(:job, [name, output, job_name, fractal_id]) do
-    Ekser.NodeStore.get_nodes_by_criteria([job_name, fractal_id])
-    |> prepare(name, output, job_name)
+  def handle_continue(:job, [name, output, job, fractal_id]) do
+    Ekser.NodeStore.get_nodes([job.name, fractal_id])
+    |> prepare(name, output, job)
   end
 
   @impl GenServer

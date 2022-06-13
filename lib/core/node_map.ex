@@ -5,16 +5,14 @@ defmodule Ekser.NodeMap do
     %{curr: curr}
   end
 
-  def get_nodes(nodes, [job_name, fractal_id]) do
-    [
-      Enum.find(Map.values(nodes), fn node ->
-        node.job_name === job_name and node.fractal_id === fractal_id
-      end)
-    ]
+  def get_nodes(nodes, job_name, fractal_id) do
+    Map.filter(nodes, fn {_, node} ->
+      node.job_name === job_name and node.fractal_id === fractal_id
+    end)
   end
 
-  def get_nodes(nodes, [job_name]) do
-    Enum.filter(Map.values(nodes), fn node ->
+  def get_nodes(nodes, job_name) do
+    Map.filter(nodes, fn {_, node} ->
       node.job_name === job_name
     end)
   end

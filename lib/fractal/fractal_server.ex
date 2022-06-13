@@ -9,7 +9,7 @@ defmodule Ekser.FractalServ do
     GenServer.call(Ekser.FractalServ, {:start, job, fractal_id})
   end
 
-  @spec start(atom(), %Ekser.Job{}) :: :ok | :error
+  @spec start(%Ekser.Job{}) :: :ok | :error
   def start(job) do
     GenServer.call(Ekser.FractalServ, {:start, job, "0"})
   end
