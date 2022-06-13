@@ -49,7 +49,7 @@ defmodule Ekser.Supervisor do
       Ekser.AggregateSup.child_spec(name: Ekser.AggregateSup),
       Registry.child_spec(keys: :unique, name: AggregatorRegistry),
       Ekser.AggregateServ.child_spec(name: Ekser.AggregateServ),
-      Ekser.InputSup.child_spec(value: config, name: Ekser.InputSup)
+      Ekser.InputSup.child_spec(value: curr, name: Ekser.InputSup)
     ]
   end
 end

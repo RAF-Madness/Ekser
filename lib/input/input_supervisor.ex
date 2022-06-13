@@ -14,12 +14,12 @@ defmodule Ekser.InputSup do
   end
 
   def start_link(opts) do
-    {port, just_opts} = Keyword.pop!(opts, :value)
-    Supervisor.start_link(__MODULE__, port, just_opts)
+    {curr, just_opts} = Keyword.pop!(opts, :value)
+    Supervisor.start_link(__MODULE__, curr, just_opts)
   end
 
-  @impl true
-  def init(port) do
+  @impl Supervisor
+  def init(curr) do
     sup_flags = %{
       strategy: :one_for_one,
       intensity: 1,
@@ -27,14 +27,14 @@ defmodule Ekser.InputSup do
       auto_shutdown: :any_significant
     }
 
-    {:ok, {sup_flags, children(port)}}
+    {:ok, {sup_flags, children(curr)}}
   end
 
-  defp children(port) do
+  defp children(curr) do
     initial = add_parser()
 
     [
-      Ekser.ListenerSup.child_spec(value: port, name: Ekser.ListenerSup),
+      Ekser.ListenerSup.child_spec(value: curr, name: Ekser.ListenerSup),
       Ekser.Commander.child_spec(value: :stdio)
       | initial
     ]

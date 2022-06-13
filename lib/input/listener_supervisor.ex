@@ -14,12 +14,12 @@ defmodule Ekser.ListenerSup do
   end
 
   def start_link(opts) do
-    {port, just_opts} = Keyword.pop!(opts, :value)
-    Supervisor.start_link(__MODULE__, port, just_opts)
+    {curr, just_opts} = Keyword.pop!(opts, :value)
+    Supervisor.start_link(__MODULE__, curr, just_opts)
   end
 
   @impl Supervisor
-  def init(port) do
+  def init(curr) do
     sup_flags = %{
       strategy: :rest_for_one,
       intensity: 1,
@@ -27,13 +27,13 @@ defmodule Ekser.ListenerSup do
       auto_shutdown: :any_significant
     }
 
-    {:ok, {sup_flags, children(port)}}
+    {:ok, {sup_flags, children(curr)}}
   end
 
-  defp children(port) do
+  defp children(curr) do
     [
       Task.Supervisor.child_spec(name: Ekser.ReceiverSup),
-      Ekser.Listener.child_spec(value: port)
+      Ekser.Listener.child_spec(value: curr)
     ]
   end
 end
