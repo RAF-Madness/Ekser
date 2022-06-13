@@ -64,10 +64,12 @@ defmodule Ekser.Message do
     end
   end
 
+  @spec send_effect(%__MODULE__{}) :: :ok | :exit | function()
   def send_effect(message) do
     message.type.send_effect(message)
   end
 
+  @spec get_short_type(%__MODULE__{}) :: String.t()
   def get_short_type(message) do
     Atom.to_string(message.type)
     |> String.split(".")
@@ -75,6 +77,7 @@ defmodule Ekser.Message do
     |> String.upcase()
   end
 
+  @spec append_route(%__MODULE__{}, integer()) :: %__MODULE__{}
   def append_route(message, id) do
     %__MODULE__{message | routes: [id | message.routes]}
   end

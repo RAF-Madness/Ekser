@@ -1,3 +1,3 @@
 defmodule Ekser.FractalStore do
-  use Agent
+  use Agent, restart: :transient
 end

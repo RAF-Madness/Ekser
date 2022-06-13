@@ -52,7 +52,13 @@ end
 
 defimpl Jason.Encoder, for: Ekser.Node do
   def encode(value, opts) do
-    map = %{Map.from_struct(value) | ip: Ekser.TCP.from_ip(value.ip)}
+    map = %{
+      "nodeId" => value.id,
+      "ipAddress" => Ekser.TCP.from_ip(value.ip),
+      "port" => value.port,
+      "fractalId" => value.fractal_id,
+      "jobName" => value.job_name
+    }
 
     Jason.Encode.map(map, opts)
   end
