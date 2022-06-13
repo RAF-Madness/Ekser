@@ -1,17 +1,16 @@
 defmodule Ekser.ResultServ do
-  require Ekser.DHTStore
+  require Ekser.NodeStore
   use GenServer, restart: :transient
 
   # Client API
 
   def start_link([identifier | args]) do
     name = string_name(identifier)
-    registry_name = via_tuple(name)
-    GenServer.start_link(__MODULE__, [name | args], name: registry_name)
+    GenServer.start_link(__MODULE__, [name | args], name: via_tuple(name))
   end
 
-  def respond(identifier, id, payload) when is_integer(id) and is_list(payload) do
-    GenServer.cast(via_tuple(identifier), {:response, {id, payload}})
+  def respond(pid, id, payload) do
+    GenServer.cast(pid, {:response, id, payload})
   end
 
   # Server Functions
@@ -20,84 +19,117 @@ defmodule Ekser.ResultServ do
     "result#{identifier}"
   end
 
-  defp via_tuple(string_name) do
-    {:via, Registry, {AggregatorRegistry, string_name}}
-  end
-
-  defp generate_handle(name) do
-    Path.expand(name)
-    |> File.open!([:write])
-  end
-
-  defp generate_png(handle, resolution) do
-    :png.create(%{
-      size: resolution,
-      mode: {:indexed, 8},
-      file: handle,
-      palette: {:rgb, 8, [{255, 0, 0}]}
-    })
-  end
-
-  defp new_state(name, resolution, printer, map) do
-    handle = generate_handle(name)
-
-    case map do
-      nil -> {{name, handle, generate_png(handle, resolution), printer}}
-      _ -> {{name, handle, generate_png(handle, resolution), printer}, map}
-    end
+  defp via_tuple(name) do
+    {:via, Registry, {AggregatorRegistry, name}}
   end
 
   @impl GenServer
-  def init([name, printer, job]) do
-    {:ok, {name, printer, job}, {:continue, :job}}
+  def init(args) do
+    {:ok, args, {:continue, :init}}
+  end
+
+  defp prepare(nodes, name, output, job_name) do
+    job = Ekser.JobStore.get_job_by_name(job_name)
+
+    :ok =
+      nodes
+      |> Ekser.Message.ResultRequest.new(name)
+      |> Ekser.Router.send()
+
+    responses = Enum.into(nodes, %{}, fn node -> {node.id, nil} end)
+    {:noreply, {name, output, job.resolution, responses, []}}
   end
 
   @impl GenServer
-  def init([name, printer, job, fractal_id]) do
-    {:ok, {name, printer, job, fractal_id}, {:continue, :id}}
+  def handle_continue(:id, [name, output, job_name]) do
+    Ekser.NodeStore.get_nodes_by_criteria([job_name])
+    |> prepare(name, output, job_name)
   end
 
   @impl GenServer
-  def handle_continue(:id, {name, printer, job}) do
-    Ekser.DHTStore.get_nodes_by_criteria(Ekser.DHTStore, job.name)
-    # Send messages
-    {:noreply, new_state(name, job.resolution, printer, nil)}
+  def handle_continue(:job, [name, output, job_name, fractal_id]) do
+    Ekser.NodeStore.get_nodes_by_criteria([job_name, fractal_id])
+    |> prepare(name, output, job_name)
   end
 
   @impl GenServer
-  def handle_continue(:job, {name, printer, job, fractal_id}) do
-    Ekser.DHTStore.get_nodes_by_criteria(Ekser.DHTStore, job.name, fractal_id)
-    # Send messages
-    {:noreply, new_state(name, job.resolution, printer, %{})}
-  end
-
-  @impl GenServer
-  def handle_cast({:response, {id, response}}, {output, responses})
-      when is_map(responses) do
-    # :png.append
+  def handle_cast({:response, id, response}, {name, output, resolution, responses, list}) do
     new_responses = Map.put(responses, id, response)
+    new_list = list ++ response.points
 
     case is_complete?(new_responses) do
-      true -> complete(output, new_responses.values)
-      false -> {:noreply, {output, new_responses}}
+      true -> complete(name, output, resolution, new_list)
+      false -> {:noreply, {name, output, resolution, new_responses, new_list}}
     end
-  end
-
-  @impl GenServer
-  def handle_cast({:response, {_, response}}, output) do
-    # :png.append
-    complete(output, response)
   end
 
   defp is_complete?(responses) do
     Enum.all?(responses.values, fn element -> element !== nil end)
   end
 
-  defp complete({name, handle, png, printer}, results) do
-    IO.inspect(printer, results)
+  defp complete(name, output, resolution, results) do
+    IO.inspect(output, results)
+
+    file =
+      name
+      |> Path.expand()
+      |> File.open!([:write])
+
+    png =
+      :png.create(%{
+        size: resolution,
+        mode: {:rgba, 8},
+        file: file
+      })
+
+    # Append points
+    stream =
+      Enum.sort_by(results, fn {_, y} -> y end)
+      |> Stream.chunk_by(fn {_, y} -> y end)
+
+    height_drawn =
+      Enum.reduce(stream, fn list, acc ->
+        new_acc = check_rows(list, acc, png, elem(resolution, 1))
+        generate_pixels(png, elem(resolution, 1), Enum.map(list, fn {x, _} -> x end))
+        new_acc + 1
+      end)
+
+    fill_rows(elem(resolution, 0) - height_drawn, height_drawn, png, elem(resolution, 1))
+
     :png.close(png)
-    File.close(handle)
-    IO.puts(printer, [name, " is now available."])
+    File.close(file)
+    IO.puts(output, [name, ".png is now available."])
     exit(:shutdown)
+  end
+
+  defp check_rows(list, acc, png, width) do
+    [{_, y}] = Enum.take(list, 1)
+
+    fill_rows(y - acc, acc, png, width)
+  end
+
+  defp fill_rows(height_dist, acc, png, width) do
+    case height_dist do
+      0 ->
+        acc
+
+      _ ->
+        generate_pixels(png, width, [])
+        fill_rows(height_dist - 1, acc + 1, png, width)
+    end
+  end
+
+  defp generate_pixels(png, width, pixel_list) do
+    row =
+      Stream.iterate(0, &(&1 + 1))
+      |> Stream.take(width)
+      |> Enum.map(fn index ->
+        case index in pixel_list do
+          true -> <<255, 0, 0, 255>>
+          false -> <<0, 0, 0, 0>>
+        end
+      end)
+
+    :png.append(png, {:row, row})
   end
 end

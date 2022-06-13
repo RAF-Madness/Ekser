@@ -12,9 +12,8 @@ defmodule Ekser.Command.Status do
   def generate() do
     Ekser.Command.new(
       "status",
-      &status/1,
+      &status/2,
       [
-        {&Ekser.Command.resolve_output/2, false},
         {&Ekser.Command.resolve_job_name/2, true},
         {&Ekser.Command.resolve_id/2, true}
       ],
@@ -22,18 +21,18 @@ defmodule Ekser.Command.Status do
     )
   end
 
-  defp status(args = [_, job_name, id]) do
-    GenServer.cast(Ekser.AggregateServ, {:status, args})
+  defp status(args = [_, job_name, id], output) do
+    GenServer.cast(Ekser.AggregateServ, {:status, [output | args]})
     "Attempting to collect status for job #{job_name} and fractal ID #{id}"
   end
 
-  defp status(args = [_, job_name]) do
-    GenServer.cast(Ekser.AggregateServ, {:status, args})
+  defp status(args = [_, job_name], output) do
+    GenServer.cast(Ekser.AggregateServ, {:status, [output | args]})
     "Attempting to collect status for job #{job_name}"
   end
 
-  defp status(args = [_]) do
-    GenServer.cast(Ekser.AggregateServ, {:status, args})
+  defp status(args = [_], output) do
+    GenServer.cast(Ekser.AggregateServ, {:status, [output | args]})
     "Attempting to collect status for all jobs"
   end
 end
@@ -52,34 +51,35 @@ defmodule Ekser.Command.Start do
   def generate() do
     Ekser.Command.new(
       "start",
-      &start/1,
-      [{&Ekser.Command.resolve_job/2, true}],
+      &start/2,
+      [{&Ekser.Command.resolve_job_name/2, true}],
       "start [X]"
     )
   end
 
-  defp start([job]) do
+  defp start([job], _) do
     Ekser.FractalServ.start(Ekser.FractalServ, job)
     "Starting job #{job.name}"
   end
 
-  defp start([]) do
-    {"Enter job parameters. Format: name N P WxH A1|A2|A3...", &parse_job/1}
+  defp start([], _) do
+    {"Enter job parameters. Format: name N P WxH A1|A2|A3...", &parse_job/2}
   end
 
-  defp parse_job(line) do
+  defp parse_job(line, output) do
     read_job = Ekser.Job.create_from_line(line)
 
     case read_job do
       {:error, message} -> message
-      {:ok, job} -> new_start(job)
+      job when Ekser.Job.is_job(job) -> new_start(job, output)
     end
   end
 
-  defp new_start(job) do
-    Ekser.JobStore.receive_job(Ekser.JobStore, job)
-    Ekser.FractalServ.start(Ekser.FractalServ, job)
-    "Starting new job #{job.name}"
+  defp new_start(job, _) do
+    case Ekser.JobStore.receive_job(job) do
+      :unchanged -> "Job with name #{job.name} already exists."
+      :ok -> Ekser.FractalServ.start(Ekser.FractalServ, job)
+    end
   end
 end
 
@@ -96,9 +96,8 @@ defmodule Ekser.Command.Result do
   def generate() do
     Ekser.Command.new(
       "result",
-      &result/1,
+      &result/2,
       [
-        {&Ekser.Command.resolve_output/2, false},
         {&Ekser.Command.resolve_job_name/2, false},
         {&Ekser.Command.resolve_id/2, true}
       ],
@@ -106,13 +105,13 @@ defmodule Ekser.Command.Result do
     )
   end
 
-  defp result(args = [_, job_name, id]) do
-    GenServer.cast(Ekser.AggregateServ, {:result, args})
+  defp result(args = [_, job_name, id], output) do
+    GenServer.cast(Ekser.AggregateServ, {:result, [output | args]})
     "Attempting to generate fractal image for job #{job_name} and fractal ID #{id}"
   end
 
-  defp result(args = [_, job_name]) do
-    GenServer.cast(Ekser.AggregateServ, {:result, args})
+  defp result(args = [_, job_name], output) do
+    GenServer.cast(Ekser.AggregateServ, {:result, [output | args]})
     "Attempting to generate fractal image for job #{job_name}"
   end
 end
@@ -128,14 +127,14 @@ defmodule Ekser.Command.Stop do
   def generate() do
     Ekser.Command.new(
       "stop",
-      &stop/1,
+      &stop/2,
       [{&Ekser.Command.resolve_job_name/2, false}],
       "stop X"
     )
   end
 
-  defp stop([job_name]) do
-    Ekser.FractalServ.stop(Ekser.FractalServ, job_name)
+  defp stop([job_name], _) do
+    Ekser.FractalServ.stop(job_name)
     # send message to worker
     "Stopping job #{job_name}"
   end
@@ -150,13 +149,13 @@ defmodule Ekser.Command.Pause do
   def generate() do
     Ekser.Command.new(
       "pause",
-      &pause/1,
+      &pause/2,
       [{&Ekser.Command.resolve_milliseconds/2, false}],
       "pause T"
     )
   end
 
-  defp pause([milliseconds]) do
+  defp pause([milliseconds], _) do
     Process.sleep(milliseconds)
     "Successfully slept for #{milliseconds} milliseconds"
   end
@@ -171,13 +170,13 @@ defmodule Ekser.Command.Quit do
   def generate() do
     Ekser.Command.new(
       "quit",
-      &quit/1,
+      &quit/2,
       [],
       "quit"
     )
   end
 
-  defp quit([]) do
+  defp quit([], _) do
     exit(:shutdown)
   end
 end

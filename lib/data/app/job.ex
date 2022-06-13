@@ -33,7 +33,7 @@ defmodule Ekser.Job do
     new(name, count, distance, resolution, points)
   end
 
-  @spec create_from_line(String.t()) :: {:ok, %__MODULE__{}} | {:error, String.t()}
+  @spec create_from_line(String.t()) :: %__MODULE__{} | {:error, String.t()}
   def create_from_line(line) when is_binary(line) do
     with [name, count_string, distance_string, resolution_string, points_string] <-
            String.split(line),

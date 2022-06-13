@@ -44,8 +44,8 @@ defmodule Ekser.Node do
     end
   end
 
-  @spec equal?(%__MODULE__{}, %__MODULE__{}) :: true | false
-  def equal?(node1, node2) when is_node(node1) and is_node(node2) do
+  @spec same_node?(%__MODULE__{}, %__MODULE__{}) :: true | false
+  def same_node?(node1, node2) when is_node(node1) and is_node(node2) do
     node1.id === node2.id or (node1.ip === node2.ip and node1.port === node2.port)
   end
 end

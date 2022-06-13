@@ -7,44 +7,49 @@ defmodule Ekser.Router do
 
   # Client API
 
-  @spec update_curr(atom(), %Ekser.Node{}) :: :ok
-  def update_curr(server, node) when Ekser.Node.is_node(node) do
-    GenServer.call(server, {:curr, node})
+  @spec update_curr(%Ekser.Node{}) :: :ok
+  def update_curr(node) do
+    GenServer.call(Ekser.Router, {:curr, node})
   end
 
-  @spec receive_contact(atom(), %Ekser.Node{}) :: :ok
-  def receive_contact(server, node) when Ekser.Node.is_node(node) do
-    set_prev(server, node)
+  @spec introduce_new(%Ekser.Node{}) :: :ok
+  def introduce_new(node) do
+    GenServer.call(Ekser.Router, {:introduce, node})
   end
 
-  @spec introduce_new(atom(), %Ekser.Node{}) :: :ok
-  def introduce_new(server, node) do
-    GenServer.call(server, {:introduce, node})
+  @spec add_cluster_neighbour(%Ekser.Node{}) :: :ok
+  def add_cluster_neighbour(node) do
+    GenServer.call(Ekser.Router, {:cluster_neighbours, node})
   end
 
-  @spec add_cluster_neighbour(atom(), %Ekser.Node{}) :: :ok
-  def add_cluster_neighbour(server, node) when Ekser.Node.is_node(node) do
-    GenServer.call(server, {:cluster_neighbours, node})
+  @spec set_prev(%Ekser.Node{}) :: :ok
+  def set_prev(node) do
+    GenServer.call(Ekser.Router, {:prev, node})
   end
 
-  @spec set_prev(atom(), %Ekser.Node{}) :: :ok
-  def set_prev(server, node) when Ekser.Node.is_node(node) do
-    GenServer.call(server, {:prev, node})
+  @spec set_next(%Ekser.Node{}) :: :ok
+  def set_next(node) do
+    GenServer.call(Ekser.Router, {:next, node})
   end
 
-  @spec set_next(atom(), %Ekser.Node{}) :: :ok
-  def set_next(server, node) when Ekser.Node.is_node(node) do
-    GenServer.call(server, {:next, node})
+  @spec forward(%Ekser.Message{}) :: :ok
+  def forward(message) do
+    GenServer.cast(Ekser.Router, {:forward, message})
   end
 
-  @spec forward(atom(), %Ekser.Message{}) :: :ok
-  def forward(server, message) when Ekser.Message.is_message(message) do
-    GenServer.cast(server, {:forward, message})
+  @spec send(function()) :: :ok
+  def send(closure) do
+    GenServer.cast(Ekser.Router, {:send, closure})
   end
 
-  @spec send(atom(), function()) :: :ok
-  def send(server, closure) when is_function(closure) do
-    GenServer.cast(server, {:send, closure})
+  @spec bootstrap(function()) :: :ok
+  def bootstrap(closure) do
+    GenServer.call(Ekser.Router, {:bootstrap, closure})
+  end
+
+  @spec broadcast(function()) :: :ok
+  def broadcast(closure) do
+    GenServer.call(Ekser.Router, {:broadcast, closure})
   end
 
   # Server Functions
@@ -83,7 +88,22 @@ defmodule Ekser.Router do
 
   @impl GenServer
   def handle_call({:bootstrap, closure}, _from, table) do
-    closure.(table.curr, table.bootstrap)
+    message = closure.(table.curr, table.bootstrap)
+
+    dispatch(message, message.receiver, table.curr.id)
+
+    {:reply, :ok, table}
+  end
+
+  @impl GenServer
+  def handle_call({:broadcast, closure}, _from, table) do
+    message_list = closure.(table.curr, Ekser.RouteTable.get_neighbours(table))
+
+    for message <- message_list,
+        {:ok, route_to} <- Ekser.RouteTable.get_next(table, message.receiver) do
+      dispatch(message, route_to, table.curr.id)
+    end
+
     {:reply, :ok, table}
   end
 
@@ -91,9 +111,7 @@ defmodule Ekser.Router do
   def handle_cast({:forward, message}, table) do
     {:ok, route_to} = Ekser.RouteTable.get_next(table, message.receiver)
 
-    Ekser.Message.append_route(message, table.curr.id)
-    |> Jason.encode!()
-    |> send(route_to.ip, route_to.port)
+    dispatch(message, route_to, table.curr.id)
 
     {:noreply, table}
   end
@@ -103,12 +121,17 @@ defmodule Ekser.Router do
     message_list = closure.(table.curr)
 
     for message <- message_list,
-        appended_message <- Ekser.Message.append_route(message, table.curr.id),
-        {:ok, route_to} <- Ekser.RouteTable.get_next(table, appended_message.receiver) do
-      send(appended_message, route_to.ip, route_to.port)
+        {:ok, route_to} <- Ekser.RouteTable.get_next(table, message.receiver) do
+      dispatch(message, route_to, table.curr.id)
     end
 
     {:noreply, table}
+  end
+
+  defp dispatch(message, receiver, id) do
+    Ekser.Message.append_route(message, id)
+    |> Jason.encode!()
+    |> send(receiver.ip, receiver.port)
   end
 
   defp send(json, ip, port) do

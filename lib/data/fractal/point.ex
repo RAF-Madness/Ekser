@@ -35,4 +35,17 @@ defmodule Ekser.Point do
   def to_json(list) do
     Enum.map(list, fn {x, y} -> %{x: x, y: y} end)
   end
+
+  def next_point(anchor_points, last_point, scale) do
+    last_point
+    |> scale_coordinate(Enum.random(anchor_points), scale)
+  end
+
+  def scale_point({x, y}, {reference_x, reference_y}, scale) do
+    {scale_coordinate(x, reference_x, scale), scale_coordinate(y, reference_y, scale)}
+  end
+
+  defp scale_coordinate(coordinate, reference_coordinate, scale) do
+    round(coordinate * scale + (1 - scale) * reference_coordinate)
+  end
 end

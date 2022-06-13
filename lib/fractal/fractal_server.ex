@@ -4,23 +4,27 @@ defmodule Ekser.FractalServ do
 
   # Client API
 
-  @spec start(atom(), %Ekser.Job{}, String.t()) :: :ok | :error
-  def start(server, job, fractal_id) do
-    GenServer.call(server, {:start, job, fractal_id})
+  @spec start(%Ekser.Job{}, String.t()) :: :ok | :error
+  def start(job, fractal_id) do
+    GenServer.call(Ekser.FractalServ, {:start, job, fractal_id})
   end
 
   @spec start(atom(), %Ekser.Job{}) :: :ok | :error
-  def start(server, job) do
-    GenServer.call(server, {:start, job, "0"})
+  def start(job) do
+    GenServer.call(Ekser.FractalServ, {:start, job, "0"})
   end
 
-  @spec stop(atom(), String.t()) :: :ok | :error
-  def stop(server, job_name) do
-    GenServer.call(server, {:stop, job_name})
+  @spec stop(String.t()) :: :ok | :error
+  def stop(job_name) do
+    GenServer.call(Ekser.FractalServ, {:stop, job_name})
   end
 
-  def get_work(server) do
-    GenServer.call(server, :work)
+  def get_work() do
+    GenServer.call(Ekser.FractalServ, :work)
+  end
+
+  def get_progress() do
+    GenServer.call(Ekser.FractalServ, :progress)
   end
 
   # Server Functions
@@ -65,6 +69,11 @@ defmodule Ekser.FractalServ do
 
   @impl GenServer
   def handle_call(:work, _from, nil) do
+    {:reply, :error, nil}
+  end
+
+  @impl GenServer
+  def handle_call(:progress, _from, nil) do
     {:reply, :error, nil}
   end
 end

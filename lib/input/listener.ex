@@ -22,7 +22,7 @@ defmodule Ekser.Listener do
 
   def run(curr) when Ekser.Node.is_node(curr) do
     {:ok, socket} = :gen_tcp.listen(curr.port, Ekser.TCP.socket_options())
-    :ok = Ekser.Router.send(Ekser.Router, Ekser.Message.Hail.new(0))
+    :ok = Ekser.Router.send(Ekser.Message.Hail.new(0))
     listen(socket, curr)
   end
 
@@ -34,6 +34,11 @@ defmodule Ekser.Listener do
 
     :ok = :gen_tcp.controlling_process(client, pid)
     listen(socket, curr)
+  end
+
+  defp read(socket) do
+    {:ok, data} = :gen_tcp.recv(socket, 0)
+    data
   end
 
   defp serve(socket, curr, pid) do
@@ -48,9 +53,9 @@ defmodule Ekser.Listener do
       |> Jason.decode!()
       |> Ekser.Message.create_from_json()
 
-    case Ekser.Node.equal?(message.receiver, curr) do
+    case Ekser.Node.same_node?(message.receiver, curr) do
       true -> process(message, pid)
-      false -> Ekser.Router.forward(Ekser.Router, message)
+      false -> Ekser.Router.forward(message)
     end
   end
 
@@ -64,13 +69,14 @@ defmodule Ekser.Listener do
       :exit ->
         Process.exit(pid, :shutdown)
 
-      closure when is_function(closure) ->
-        Ekser.Router.send(Ekser.Router, closure)
-    end
-  end
+      {:bootstrap, closure} ->
+        Ekser.Router.bootstrap(closure)
 
-  defp read(socket) do
-    {:ok, data} = :gen_tcp.recv(socket, 0)
-    data
+      {:broadcast, closure} ->
+        Ekser.Router.broadcast(closure)
+
+      {:send, closure} ->
+        Ekser.Router.send(closure)
+    end
   end
 end

@@ -4,7 +4,12 @@ defmodule Ekser.Message do
   @callback parse_payload(payload :: any()) :: any() | {:error, String.t()}
   @callback new(list(%Ekser.Node{}), any()) :: (%Ekser.Node{} -> %__MODULE__{})
   @callback new(any()) :: (%Ekser.Node{}, %Ekser.Node{} -> %__MODULE__{})
-  @callback send_effect(message :: %__MODULE__{}) :: :ok | function()
+  @callback send_effect(message :: %__MODULE__{}) ::
+              :ok
+              | :exit
+              | {:bootstrap, function()}
+              | {:broadcast, function()}
+              | {:send, function()}
   @optional_callbacks new: 1, new: 2
 
   @enforce_keys [:type, :sender, :receiver, :routes, :payload]
@@ -19,7 +24,7 @@ defmodule Ekser.Message do
     # need this due to programmer errors
     type =
       try do
-        json["messageType"]
+        json["type"]
         |> String.capitalize()
         |> concat.()
         |> String.to_existing_atom()
@@ -42,6 +47,36 @@ defmodule Ekser.Message do
     new(type, sender, receiver, routes, payload)
   end
 
+  def generate_bootstrap_closure(module) do
+    fn curr, bootstrap ->
+      Ekser.Message.new(module, curr, bootstrap, [], nil)
+    end
+  end
+
+  def generate_neighbours_closure(module) do
+    fn curr, neighbours ->
+      for neighbour <- neighbours do
+        Ekser.Message.new(module, curr, neighbour, [], nil)
+      end
+    end
+  end
+
+  def generate_receivers_closure(module, receivers, payload) do
+    fn curr ->
+      for receiver <- receivers do
+        Ekser.Message.new(module, curr, receiver, [], payload)
+      end
+    end
+  end
+
+  @spec new(
+          String.t() | any(),
+          %Ekser.Node{} | any(),
+          %Ekser.Node{} | any(),
+          list(integer()) | any(),
+          any()
+        ) ::
+          %__MODULE__{} | {:error, String.t()}
   def new(type, sender, receiver, routes, payload) do
     with {true, _} <- {is_atom(type), "Provided message type is not a valid type."},
          {true, _} <- {Ekser.Node.is_node(sender), "Provided sender is not a valid node."},
@@ -64,7 +99,8 @@ defmodule Ekser.Message do
     end
   end
 
-  @spec send_effect(%__MODULE__{}) :: :ok | :exit | function()
+  @spec send_effect(%__MODULE__{}) ::
+          :ok | :exit | {:bootstrap, function()} | {:broadcast, function()} | {:send, function()}
   def send_effect(message) do
     message.type.send_effect(message)
   end

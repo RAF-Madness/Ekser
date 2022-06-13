@@ -70,7 +70,7 @@ defmodule Ekser.Commander do
 
     case retrieved_command do
       {:ok, command, arguments} ->
-        Ekser.Command.execute(command, arguments)
+        Ekser.Command.execute(command, arguments, output)
         |> execute_chain(input, output)
 
       {:error, message} ->
@@ -91,7 +91,7 @@ defmodule Ekser.Commander do
       {_, new_function} when is_function(new_function) ->
         IO.gets(input, "")
         |> String.trim()
-        |> new_function.()
+        |> new_function.(output)
         |> execute_chain(input, output)
 
       _ ->

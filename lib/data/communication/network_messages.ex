@@ -8,16 +8,12 @@ defmodule Ekser.Message.Entered do
 
   @impl Ekser.Message
   def new(receivers, _) do
-    fn curr ->
-      for receiver <- receivers do
-        Ekser.Message.new(__MODULE__, curr, receiver, [], nil)
-      end
-    end
+    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, nil)
   end
 
   @impl Ekser.Message
   def send_effect(message) do
-    Ekser.DHTStore.enter_network(Ekser.DHTStore, message.sender)
+    Ekser.NodeStore.enter_network(message.sender)
   end
 end
 
@@ -31,19 +27,19 @@ defmodule Ekser.Message.ConnectionResponse do
 
   @impl Ekser.Message
   def new(receivers, _) do
-    fn curr ->
-      for receiver <- receivers do
-        Ekser.Message.new(__MODULE__, curr, receiver, [], nil)
-      end
-    end
+    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, nil)
   end
 
   @impl Ekser.Message
   def send_effect(message) do
-    Ekser.Router.set_next(Ekser.Router, message.sender)
+    :ok = Ekser.Router.set_next(message.sender)
 
-    [Ekser.DHTStore.get_all_nodes(Ekser.DHTStore)]
-    |> Ekser.Message.Entered.new(0)
+    closure =
+      Ekser.NodeStore.get_all_nodes()
+      |> Map.values()
+      |> Ekser.Message.Entered.new(nil)
+
+    {:send, closure}
   end
 end
 
@@ -57,17 +53,13 @@ defmodule Ekser.Message.ConnectionRequest do
 
   @impl Ekser.Message
   def new(receivers, _) do
-    fn curr ->
-      for receiver <- receivers do
-        Ekser.Message.new(__MODULE__, curr, receiver, [], nil)
-      end
-    end
+    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, nil)
   end
 
   @impl Ekser.Message
   def send_effect(message) do
-    Ekser.Router.set_prev(Ekser.Router, message.sender)
-    Ekser.Message.ConnectionResponse.new([message.sender], 0)
+    :ok = Ekser.Router.set_prev(message.sender)
+    {:send, Ekser.Message.ConnectionResponse.new([message.sender], 0)}
   end
 end
 
@@ -80,36 +72,18 @@ defmodule Ekser.Message.Welcome do
   end
 
   @impl Ekser.Message
-  def new(receivers, _) do
-    partial_dht = Ekser.DHTStore.introduce_new(Ekser.DHTStore)
-
-    payload =
-      Ekser.DHT.new(
-        partial_dht.id,
-        partial_dht.nodes,
-        Ekser.JobStore.get_all_jobs(Ekser.JobStore)
-      )
-
-    fn curr ->
-      for receiver <- receivers do
-        Ekser.Message.new(__MODULE__, curr, receiver, [], payload)
-      end
-    end
+  def new(receivers, dht) do
+    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, dht)
   end
 
   @impl Ekser.Message
   def send_effect(message) do
-    Ekser.Router.receive_contact(Ekser.Router, message.sender)
+    :ok = Ekser.Router.set_prev(message.sender)
+    :ok = Ekser.JobStore.receive_system(message.payload)
 
-    Ekser.JobStore.receive_system(Ekser.JobStore, message.payload)
+    first_node = Ekser.NodeStore.receive_system(message.payload)
 
-    first_node =
-      Ekser.DHTStore.receive_system(
-        Ekser.DHTStore,
-        message.payload
-      )
-
-    Ekser.Message.ConnectionRequest.new([first_node], 0)
+    {:send, Ekser.Message.ConnectionRequest.new([first_node], 0)}
   end
 end
 
@@ -123,17 +97,35 @@ defmodule Ekser.Message.SystemKnock do
 
   @impl Ekser.Message
   def new(receivers, _) do
-    fn curr ->
-      for receiver <- receivers do
-        Ekser.Message.new(__MODULE__, curr, receiver, [], nil)
-      end
-    end
+    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, nil)
   end
 
   @impl Ekser.Message
   def send_effect(message) do
-    Ekser.Router.introduce_new(Ekser.Router, message.sender)
-    Ekser.Message.Welcome.new(message.sender, 0)
+    :ok = Ekser.Router.introduce_new(message.sender)
+    map = Ekser.NodeStore.introduce_new()
+    jobs = Ekser.JobStore.get_all_jobs()
+    dht = Ekser.DHT.new(map.id, map.nodes, jobs)
+    {:send, Ekser.Message.Welcome.new(message.sender, dht)}
+  end
+end
+
+defmodule Ekser.Message.Quit do
+  @behaviour Ekser.Message
+
+  @impl Ekser.Message
+  def parse_payload(_) do
+    nil
+  end
+
+  @impl Ekser.Message
+  def new(receivers, _) do
+    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, nil)
+  end
+
+  @impl Ekser.Message
+  def send_effect(_) do
+    :exit
   end
 end
 
@@ -147,15 +139,11 @@ defmodule Ekser.Message.Leave do
 
   @impl Ekser.Message
   def new(receivers, _) do
-    fn curr ->
-      for receiver <- receivers do
-        Ekser.Message.new(__MODULE__, curr, receiver, [], nil)
-      end
-    end
+    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, nil)
   end
 
   @impl Ekser.Message
   def send_effect(message) do
-    Ekser.DHTStore.leave_network(Ekser.DHTStore, message.sender)
+    Ekser.NodeStore.leave_network(message.sender)
   end
 end

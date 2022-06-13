@@ -25,8 +25,14 @@ defmodule Ekser.RouteTable do
     end
   end
 
-  @spec get_cluster_neighbours(%Ekser.Node{}, list(%Ekser.Node{})) :: list(%Ekser.Node{})
-  def get_cluster_neighbours(node, nodes) when Ekser.Node.is_node(node) and is_list(nodes) do
+  @spec get_neighbours(%__MODULE__{}) :: list(%Ekser.Node{})
+  def get_neighbours(table) do
+    [table.next, table.prev | table.cluster_neighbours]
+  end
+
+  @spec calculate_fractal_neighbours(%Ekser.Node{}, list(%Ekser.Node{})) :: list(%Ekser.Node{})
+  def calculate_fractal_neighbours(node, nodes)
+      when Ekser.Node.is_node(node) and is_list(nodes) do
     Enum.filter(nodes, fn element ->
       compare_edit_distance(node.fractal_id, element.fractal_id, 1) === 1
     end)

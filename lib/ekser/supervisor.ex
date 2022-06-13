@@ -42,12 +42,12 @@ defmodule Ekser.Supervisor do
     [
       Task.Supervisor.child_spec(name: Ekser.SenderSup),
       Ekser.Router.child_spec(name: Ekser.Router),
-      Ekser.DHTStore.child_spec(value: curr, name: Ekser.DHTStore),
+      Ekser.NodeStore.child_spec(value: curr, name: Ekser.NodeStore),
       Ekser.JobStore.child_spec(value: config.jobs, name: Ekser.JobStore),
       Ekser.FractalSup.child_spec(name: Ekser.FractalSup),
       Ekser.FractalServ.child_spec(name: Ekser.FractalServ),
       Ekser.AggregateSup.child_spec(name: Ekser.AggregateSup),
-      Registry.child_spec(keys: :unique, name: AggregatorRegistry),
+      Registry.child_spec(keys: :unique, name: Ekser.AggregateReg),
       Ekser.AggregateServ.child_spec(name: Ekser.AggregateServ),
       Ekser.InputSup.child_spec(value: curr, name: Ekser.InputSup)
     ]
