@@ -1,5 +1,6 @@
 defmodule Ekser.Message do
   require Ekser.Node
+
   @behaviour Ekser.Serializable
   @callback parse_payload(payload :: any()) :: any() | {:error, String.t()}
   @callback new(list(%Ekser.Node{}), any()) :: (%Ekser.Node{} -> %__MODULE__{})
@@ -19,7 +20,7 @@ defmodule Ekser.Message do
 
   @impl Ekser.Serializable
   def create_from_json(json) when is_map(json) do
-    concat = &("Ekser.Message." <> &1)
+    concat = &("Elixir.Ekser.Message." <> &1)
 
     # need this due to programmer errors
     type =

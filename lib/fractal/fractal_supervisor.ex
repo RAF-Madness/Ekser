@@ -2,7 +2,7 @@ defmodule Ekser.FractalSup do
   use DynamicSupervisor
 
   def start_link(opts) do
-    Supervisor.start_link(__MODULE__, :ok, opts)
+    DynamicSupervisor.start_link(__MODULE__, :ok, opts)
   end
 
   @impl true

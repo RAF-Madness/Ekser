@@ -30,18 +30,22 @@ defmodule Ekser.Supervisor do
   defp children() do
     config = Ekser.Config.read_config("config.json")
 
+    # ip =
+    #  System.cmd("nslookup", ["myip.opendns.com", "resolver1.opendns.com"])
+    #  |> elem(0)
+    #  |> String.split()
+    #  |> Enum.at(7)
+    #  |> Ekser.TCP.to_ip()
+
     ip =
-      System.cmd("nslookup", ["myip.opendns.com", "resolver1.opendns.com"])
-      |> elem(0)
-      |> String.split()
-      |> Enum.at(7)
+      "192.168.0.29"
       |> Ekser.TCP.to_ip()
 
     curr = Ekser.Node.new(-2, ip, config.port, "", "")
 
     [
       Task.Supervisor.child_spec(name: Ekser.SenderSup),
-      Ekser.Router.child_spec(name: Ekser.Router),
+      Ekser.Router.child_spec(value: {config.bootstrap, curr}, name: Ekser.Router),
       Ekser.NodeStore.child_spec(value: curr, name: Ekser.NodeStore),
       Ekser.JobStore.child_spec(value: config.jobs, name: Ekser.JobStore),
       Ekser.FractalSup.child_spec(name: Ekser.FractalSup),

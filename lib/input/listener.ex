@@ -2,6 +2,7 @@ defmodule Ekser.Listener do
   require Ekser.TCP
   require Ekser.Node
   require Ekser.Message
+  require Logger
   use Task
 
   def child_spec(opts) do
@@ -22,7 +23,7 @@ defmodule Ekser.Listener do
 
   def run(curr) when Ekser.Node.is_node(curr) do
     {:ok, socket} = :gen_tcp.listen(curr.port, Ekser.TCP.socket_options())
-    :ok = Ekser.Router.send(Ekser.Message.Hail.new(0))
+    :ok = Ekser.Router.bootstrap(Ekser.Message.Hail.new(0))
     listen(socket, curr)
   end
 
@@ -42,24 +43,28 @@ defmodule Ekser.Listener do
   end
 
   defp serve(socket, curr, pid) do
-    utf =
+    bytes =
       socket
       |> read()
 
     :ok = :gen_tcp.close(socket)
 
-    message =
-      utf
-      |> Jason.decode!()
-      |> Ekser.Message.create_from_json()
+    with {:ok, json} <- Jason.decode(bytes),
+         message <- Ekser.Message.create_from_json(json) do
+      process(message, curr, pid)
+    else
+      {:error, message} -> Logger.error(message)
+    end
+  end
 
+  defp process(message, curr, pid) do
     case Ekser.Node.same_node?(message.receiver, curr) do
-      true -> process(message, pid)
+      true -> execute(message, pid)
       false -> Ekser.Router.forward(message)
     end
   end
 
-  defp process(message, pid) do
+  defp execute(message, pid) do
     effect = Ekser.Message.send_effect(message)
 
     case effect do

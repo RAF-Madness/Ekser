@@ -4,6 +4,10 @@ defmodule Ekser.FractalServ do
 
   # Client API
 
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, :ok, opts)
+  end
+
   @spec start(%Ekser.Job{}, String.t()) :: :ok | :error
   def start(job, fractal_id) do
     GenServer.call(Ekser.FractalServ, {:start, job, fractal_id})

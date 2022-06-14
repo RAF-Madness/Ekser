@@ -18,7 +18,7 @@ defmodule Ekser.Serializable do
   def to_struct_map(list, module, kv) do
     stream = Stream.map(list, fn element -> module.create_from_json(element) end)
 
-    case Enum.find(stream, fn element -> is_struct(element, module) end) do
+    case Enum.find(stream, fn element -> not is_struct(element, module) end) do
       nil -> Enum.into(stream, %{}, fn element -> kv.(element) end)
       _ -> :error
     end

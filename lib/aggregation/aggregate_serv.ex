@@ -6,6 +6,10 @@ defmodule Ekser.AggregateServ do
 
   # Client API
 
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, :ok, opts)
+  end
+
   def start_status(server, args) do
     GenServer.cast(server, {:status, args})
   end

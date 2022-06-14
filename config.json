@@ -1,6 +1,6 @@
 {
     "port": 1100,
-    "bootstrapIpAddress": "192.168.1.29",
+    "bootstrapIpAddress": "192.168.0.29",
     "bootstrapPort": 2000,
     "weakLimit": 500,
     "strongLimit": 1000,

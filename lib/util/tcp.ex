@@ -46,7 +46,7 @@ defmodule Ekser.TCP do
 
   @spec from_ip(tuple()) :: String.t()
   def from_ip(ip) do
-    case is_binary(ip) do
+    case is_tuple(ip) do
       true ->
         ip
         |> Tuple.to_list()
@@ -59,7 +59,7 @@ defmodule Ekser.TCP do
 
   @spec socket_options() :: list()
   def socket_options() do
-    [:binary, packet: :raw, active: false, reuseaddr: true]
+    [:binary, packet: 0, active: false, reuseaddr: true]
   end
 
   @spec send(String.t(), tuple(), pos_integer()) :: :ok

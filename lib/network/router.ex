@@ -7,6 +7,11 @@ defmodule Ekser.Router do
 
   # Client API
 
+  def start_link(opts) do
+    {value, just_opts} = Keyword.pop!(opts, :value)
+    GenServer.start_link(__MODULE__, value, just_opts)
+  end
+
   @spec update_curr(%Ekser.Node{}) :: :ok
   def update_curr(node) do
     GenServer.call(Ekser.Router, {:curr, node})
