@@ -14,24 +14,24 @@ defmodule Ekser.Command do
   end
 
   @spec execute(%__MODULE__{}, list(String.t()), any()) ::
-          String.t() | {String.t(), function()} | {%Ekser.Job{}, function()}
+          String.t() | {String.t(), function()}
   def execute(command, arguments, output) do
     command.function.(arguments, output)
   end
 
-  @spec resolve_command(nonempty_list(String.t()), any()) ::
+  @spec resolve_command(nonempty_list(String.t())) ::
           {:ok, %__MODULE__{}, list()} | {:error, String.t()}
-  def resolve_command([user_command | rest], output) do
+  def resolve_command([user_command | rest]) do
     case Enum.find(generate_commands(), fn command -> command.name === user_command end) do
       nil ->
         {:error, "Invalid command."}
 
       command ->
-        parse_args(command, rest, output)
+        parse_args(command, rest)
     end
   end
 
-  def resolve_job(arg, _) when is_binary(arg) do
+  def resolve_job(arg) when is_binary(arg) do
     found_job = Ekser.JobStore.get_job_by_name(arg)
 
     case found_job do
@@ -40,11 +40,11 @@ defmodule Ekser.Command do
     end
   end
 
-  def resolve_id(arg, _) when is_binary(arg) do
+  def resolve_id(arg) when is_binary(arg) do
     arg
   end
 
-  def resolve_milliseconds(arg, _) when is_binary(arg) do
+  def resolve_milliseconds(arg) when is_binary(arg) do
     with {milliseconds, _} <- Integer.parse(arg),
          true <- milliseconds > 0 do
       milliseconds
@@ -52,10 +52,6 @@ defmodule Ekser.Command do
       false -> {:error, "Amount of milliseconds to pause must be a positive integer."}
       :error -> {:error, "Couldn't parse amount of milliseconds to pause."}
     end
-  end
-
-  def resolve_output(_, output) do
-    output
   end
 
   @callback generate() :: %__MODULE__{
@@ -76,7 +72,7 @@ defmodule Ekser.Command do
     ]
   end
 
-  defp parse_args(command, args, output) do
+  defp parse_args(command, args) do
     params = command.parameters
     param_amount = length(params)
     arg_amount = length(args)
@@ -85,19 +81,23 @@ defmodule Ekser.Command do
            {arg_amount <= param_amount, "Too many arguments given. " <> command.format},
          {true, _} <-
            {arg_amount === param_amount or
-              elem(Enum.at(params, max(0, arg_amount - 1)), 1),
-            "Not enough arguments given. " <> command.format} do
-      resolve_args(params, args, output)
+              elem(Enum.at(params, arg_amount), 1),
+            "Not enough arguments given. " <> command.format},
+         {:ok, validated_args} <- resolve_args(params, args) do
+      {:ok, command, validated_args}
     else
       {false, message} ->
+        {:error, message}
+
+      {:error, message} ->
         {:error, message}
     end
   end
 
-  defp resolve_args(parameters, args, output) do
+  defp resolve_args(parameters, args) do
     resolved_arguments =
       Stream.zip_with(parameters, args, fn {param_func, _}, arg ->
-        param_func.(arg, output)
+        param_func.(arg)
       end)
 
     error_resolving =

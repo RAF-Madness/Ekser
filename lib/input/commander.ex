@@ -66,7 +66,7 @@ defmodule Ekser.Commander do
       |> String.trim()
       |> String.split()
 
-    retrieved_command = Ekser.Command.resolve_command(read_input, output)
+    retrieved_command = Ekser.Command.resolve_command(read_input)
 
     case retrieved_command do
       {:ok, command, arguments} ->

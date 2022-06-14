@@ -28,6 +28,13 @@ defmodule Ekser.ResultServ do
     {:ok, args, {:continue, :init}}
   end
 
+  defp check_if_needed(nodes) do
+    case nodes === %{} do
+      true -> exit(:shutdown)
+      false -> nodes
+    end
+  end
+
   defp prepare(nodes, name, output, job) do
     {curr, popped_nodes} = Map.pop(nodes, :curr)
 
@@ -62,12 +69,14 @@ defmodule Ekser.ResultServ do
   @impl GenServer
   def handle_continue(:id, [name, output, job]) do
     Ekser.NodeStore.get_nodes([job.name])
+    |> check_if_needed()
     |> prepare(name, output, job)
   end
 
   @impl GenServer
   def handle_continue(:job, [name, output, job, fractal_id]) do
     Ekser.NodeStore.get_nodes([job.name, fractal_id])
+    |> check_if_needed()
     |> prepare(name, output, job)
   end
 

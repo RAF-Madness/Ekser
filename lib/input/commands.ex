@@ -14,8 +14,8 @@ defmodule Ekser.Command.Status do
       "status",
       &status/2,
       [
-        {&Ekser.Command.resolve_job/2, true},
-        {&Ekser.Command.resolve_id/2, true}
+        {&Ekser.Command.resolve_job/1, true},
+        {&Ekser.Command.resolve_id/1, true}
       ],
       "status [X [id]]"
     )
@@ -52,14 +52,16 @@ defmodule Ekser.Command.Start do
     Ekser.Command.new(
       "start",
       &start/2,
-      [{&Ekser.Command.resolve_job/2, true}],
+      [{&Ekser.Command.resolve_job/1, true}],
       "start [X]"
     )
   end
 
   defp start([job], _) do
-    Ekser.FractalServ.start(Ekser.FractalServ, job)
-    "Starting job #{job.name}"
+    case Ekser.FractalServ.start(job) do
+      :ok -> "Starting job #{job.name}"
+      :error -> "There is a job in progress on this node already."
+    end
   end
 
   defp start([], _) do
@@ -76,9 +78,12 @@ defmodule Ekser.Command.Start do
   end
 
   defp new_start(job, _) do
-    case Ekser.JobStore.receive_job(job) do
+    with :ok <- Ekser.JobStore.receive_job(job),
+         :ok <- Ekser.FractalServ.start(job) do
+      "Starting new job #{job.name}"
+    else
       :unchanged -> "Job with name #{job.name} already exists."
-      :ok -> Ekser.FractalServ.start(Ekser.FractalServ, job)
+      :error -> "There is a job in progress on this node already."
     end
   end
 end
@@ -98,8 +103,8 @@ defmodule Ekser.Command.Result do
       "result",
       &result/2,
       [
-        {&Ekser.Command.resolve_job/2, false},
-        {&Ekser.Command.resolve_id/2, true}
+        {&Ekser.Command.resolve_job/1, false},
+        {&Ekser.Command.resolve_id/1, true}
       ],
       "result X [id]"
     )
@@ -128,7 +133,7 @@ defmodule Ekser.Command.Stop do
     Ekser.Command.new(
       "stop",
       &stop/2,
-      [{&Ekser.Command.resolve_job/2, false}],
+      [{&Ekser.Command.resolve_job/1, false}],
       "stop X"
     )
   end
@@ -150,13 +155,13 @@ defmodule Ekser.Command.Pause do
     Ekser.Command.new(
       "pause",
       &pause/2,
-      [{&Ekser.Command.resolve_milliseconds/2, false}],
+      [{&Ekser.Command.resolve_milliseconds/1, false}],
       "pause T"
     )
   end
 
   defp pause([milliseconds], _) do
-    Process.sleep(milliseconds)
+    :ok = Process.sleep(milliseconds)
     "Successfully slept for #{milliseconds} milliseconds"
   end
 end

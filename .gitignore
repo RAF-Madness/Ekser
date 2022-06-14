@@ -24,3 +24,5 @@ ekser-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+log.txt

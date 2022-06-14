@@ -14,7 +14,7 @@ defmodule Ekser.JobMap do
   end
 
   def get_job(jobs, job_name) do
-    Enum.find(jobs, fn job -> job.name === job_name end)
+    jobs[job_name]
   end
 
   def add_job(jobs, job) do

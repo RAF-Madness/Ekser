@@ -29,6 +29,13 @@ defmodule Ekser.StatusServ do
     {:ok, args, {:continue, :init}}
   end
 
+  defp check_if_needed(nodes) do
+    case nodes === %{} do
+      true -> exit(:shutdown)
+      false -> nodes
+    end
+  end
+
   defp prepare(nodes, name, output, map) do
     {curr, popped_nodes} = Map.pop(nodes, :curr)
 
@@ -71,6 +78,7 @@ defmodule Ekser.StatusServ do
     map = %{job: job_name, fractal_id: fractal_id}
 
     Ekser.NodeStore.get_nodes([job_name, fractal_id])
+    |> check_if_needed()
     |> prepare(name, output, map)
   end
 
@@ -79,12 +87,14 @@ defmodule Ekser.StatusServ do
     map = %{job: job_name}
 
     Ekser.NodeStore.get_nodes([job_name])
+    |> check_if_needed()
     |> prepare(name, output, map)
   end
 
   @impl GenServer
   def handle_continue(:init, [name, output]) do
     Ekser.NodeStore.get_nodes([])
+    |> check_if_needed()
     |> prepare(name, output, %{})
   end
 
