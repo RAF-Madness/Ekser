@@ -50,10 +50,11 @@ defmodule Ekser.Listener do
     :ok = :gen_tcp.close(socket)
 
     with {:ok, json} <- Jason.decode(bytes),
-         message <- Ekser.Message.create_from_json(json) do
+         message when not is_tuple(message) <- Ekser.Message.create_from_json(json) do
       process(message, curr, pid)
     else
-      {:error, message} -> Logger.error(message)
+      {:error, message} ->
+        Logger.error(message)
     end
   end
 
