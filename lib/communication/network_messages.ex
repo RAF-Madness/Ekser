@@ -74,7 +74,10 @@ defmodule Ekser.Message.Welcome do
 
   @impl Ekser.Message
   def parse_payload(payload) do
-    Ekser.DHT.create_from_json(payload)
+    case is_struct(payload, Ekser.DHT) do
+      true -> payload
+      false -> Ekser.DHT.create_from_json(payload)
+    end
   end
 
   @impl Ekser.Message
@@ -112,7 +115,7 @@ defmodule Ekser.Message.SystemKnock do
     map = Ekser.NodeStore.introduce_new()
     jobs = Ekser.JobStore.get_all_jobs()
     dht = Ekser.DHT.new(map.id, map.nodes, jobs)
-    {:send, Ekser.Message.Welcome.new(message.sender, dht)}
+    {:send, Ekser.Message.Welcome.new([message.sender], dht)}
   end
 end
 

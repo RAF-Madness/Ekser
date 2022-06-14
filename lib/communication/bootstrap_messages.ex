@@ -60,7 +60,10 @@ defmodule Ekser.Message.Contact do
 
   @impl Ekser.Message
   def parse_payload(payload) do
-    Ekser.Node.create_from_json(payload)
+    case is_struct(payload, Ekser.Node) do
+      true -> payload
+      false -> Ekser.Node.create_from_json(payload)
+    end
   end
 
   @impl Ekser.Message
@@ -70,13 +73,14 @@ defmodule Ekser.Message.Contact do
 
   @impl Ekser.Message
   def send_effect(message) do
-    case message.payload.id do
-      -1 ->
-        curr = %Ekser.Node{message.sender | id: 0}
+    case message.payload.id < 0 do
+      true ->
+        curr = %Ekser.Node{message.receiver | id: 0}
         :ok = Ekser.Router.update_curr(curr)
-        Ekser.NodeStore.receive_node(curr)
+        :ok = Ekser.NodeStore.receive_node(curr)
+        {:bootstrap, Ekser.Message.Join.new(nil)}
 
-      _ ->
+      false ->
         {:send, Ekser.Message.SystemKnock.new([message.payload], 0)}
     end
   end

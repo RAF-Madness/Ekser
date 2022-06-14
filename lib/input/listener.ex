@@ -21,7 +21,7 @@ defmodule Ekser.Listener do
     Task.start_link(__MODULE__, :run, [curr])
   end
 
-  def run(curr) when Ekser.Node.is_node(curr) do
+  def run(curr) do
     {:ok, socket} = :gen_tcp.listen(curr.port, Ekser.TCP.socket_options())
     :ok = Ekser.Router.bootstrap(Ekser.Message.Hail.new(0))
     listen(socket, curr)
@@ -77,9 +77,6 @@ defmodule Ekser.Listener do
 
       {:bootstrap, closure} ->
         Ekser.Router.bootstrap(closure)
-
-      {:broadcast, closure} ->
-        Ekser.Router.broadcast(closure)
 
       {:send, closure} ->
         Ekser.Router.send(closure)

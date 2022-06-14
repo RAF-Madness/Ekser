@@ -13,8 +13,6 @@ defmodule Ekser.Job do
   @enforce_keys [:name, :count, :distance, :resolution, :points]
   defstruct @enforce_keys
 
-  defguard is_job(term) when is_struct(term, __MODULE__)
-
   defguardp is_count(term) when is_integer(term) and term >= 3 and term <= 10
 
   defguardp is_distance(term) when is_float(term) and term >= 0 and term <= 1

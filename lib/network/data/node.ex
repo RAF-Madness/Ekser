@@ -11,8 +11,6 @@ defmodule Ekser.Node do
     :job_name
   ]
 
-  defguard is_node(term) when is_struct(term, __MODULE__)
-
   @impl Ekser.Serializable
   def create_from_json(json) when is_map(json) do
     id = json["nodeId"]
@@ -45,7 +43,7 @@ defmodule Ekser.Node do
   end
 
   @spec same_node?(%__MODULE__{}, %__MODULE__{}) :: true | false
-  def same_node?(node1, node2) when is_node(node1) and is_node(node2) do
+  def same_node?(node1, node2) do
     node1.id === node2.id or (node1.ip === node2.ip and node1.port === node2.port)
   end
 end

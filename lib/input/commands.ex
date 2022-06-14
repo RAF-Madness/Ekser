@@ -71,7 +71,7 @@ defmodule Ekser.Command.Start do
 
     case read_job do
       {:error, message} -> message
-      job when Ekser.Job.is_job(job) -> new_start(job, output)
+      job when is_struct(job, Ekser.Job) -> new_start(job, output)
     end
   end
 

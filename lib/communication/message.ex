@@ -9,7 +9,6 @@ defmodule Ekser.Message do
               :ok
               | :exit
               | {:bootstrap, function()}
-              | {:broadcast, function()}
               | {:send, function()}
   @optional_callbacks new: 1, new: 2
 
@@ -26,7 +25,9 @@ defmodule Ekser.Message do
     type =
       try do
         json["type"]
-        |> String.capitalize()
+        |> String.split("_")
+        |> Enum.map(fn string -> String.capitalize(string) end)
+        |> Enum.join()
         |> concat.()
         |> String.to_existing_atom()
       rescue
@@ -80,9 +81,9 @@ defmodule Ekser.Message do
           %__MODULE__{} | {:error, String.t()}
   def new(type, sender, receiver, routes, payload) do
     with {true, _} <- {is_atom(type), "Provided message type is not a valid type."},
-         {true, _} <- {Ekser.Node.is_node(sender), "Provided sender is not a valid node."},
+         {true, _} <- {is_struct(sender, Ekser.Node), "Provided sender is not a valid node."},
          {true, _} <-
-           {Ekser.Node.is_node(receiver), "Provided receiver is not a valid node."},
+           {is_struct(receiver, Ekser.Node), "Provided receiver is not a valid node."},
          {true, _} <-
            {is_list(routes),
             "Routes must be a list of nodes by ID which this message passed through."},

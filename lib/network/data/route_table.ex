@@ -7,13 +7,12 @@ defmodule Ekser.RouteTable do
     :curr,
     :prev,
     :next,
-    :cluster_neighbours
+    cluster_neighbours: []
   ]
 
   @spec get_next(%__MODULE__{}, %Ekser.Node{}) ::
           {:ok, %Ekser.Node{}} | {:error, String.t()}
-  def get_next(table, node)
-      when is_struct(table, __MODULE__) and Ekser.Node.is_node(node) do
+  def get_next(table, node) do
     best_node =
       extract_neighbours(table)
       |> Stream.map(fn element -> {element, get_min_distance(node, element)} end)
@@ -25,21 +24,27 @@ defmodule Ekser.RouteTable do
     end
   end
 
-  @spec get_neighbours(%__MODULE__{}) :: list(%Ekser.Node{})
-  def get_neighbours(table) do
-    [table.next, table.prev | table.cluster_neighbours]
-  end
-
   @spec calculate_fractal_neighbours(%Ekser.Node{}, list(%Ekser.Node{})) :: list(%Ekser.Node{})
-  def calculate_fractal_neighbours(node, nodes)
-      when Ekser.Node.is_node(node) and is_list(nodes) do
+  def calculate_fractal_neighbours(node, nodes) do
     Enum.filter(nodes, fn element ->
       compare_edit_distance(node.fractal_id, element.fractal_id, 1) === 1
     end)
   end
 
   defp extract_neighbours(table) do
-    [table.prev, table.next | table.cluster_neighbours]
+    cond do
+      table.next != nil and table.prev != nil ->
+        [table.next, table.prev | table.cluster_neighbours]
+
+      table.next != nil and table.prev === nil ->
+        [table.next | table.cluster_neighbours]
+
+      table.next === nil and table.prev != nil ->
+        [table.prev | table.cluster_neighbours]
+
+      table.next === nil and table.prev === nil ->
+        table.cluster_neighbours
+    end
   end
 
   defp least_hoops({node, dist}, acc) do
@@ -54,8 +59,8 @@ defmodule Ekser.RouteTable do
   defp get_min_distance(node, element) do
     chain_distance = abs(node.id - element.id)
 
-    with true <- node.job != "",
-         true <- node.job === element.job,
+    with true <- node.job_name != "",
+         true <- node.job_name === element.job_name,
          cluster_dist when is_integer(cluster_dist) <-
            compare_edit_distance(node.fractal_id, element.fractal_id, chain_distance) do
       cluster_dist

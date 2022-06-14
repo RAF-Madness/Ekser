@@ -93,7 +93,7 @@ defmodule Ekser.StatusServ do
     status =
       Ekser.Status.new(
         name,
-        Map.get_lazy(responses, :job, fn -> response.job end),
+        Map.get_lazy(responses, :job_name, fn -> response.job_name end),
         Map.get_lazy(responses, :fractal_id, fn -> response.fractal_id end),
         response.points
       )
@@ -102,7 +102,7 @@ defmodule Ekser.StatusServ do
 
     case is_complete?(new_responses) do
       true ->
-        {_, removed_job_map} = Map.pop(new_responses, :job)
+        {_, removed_job_map} = Map.pop(new_responses, :job_name)
         {_, removed_fractal_map} = Map.pop(removed_job_map, :fractal_id)
         complete(name, output, removed_fractal_map)
 
@@ -118,7 +118,7 @@ defmodule Ekser.StatusServ do
   defp complete(name, output, statuses) do
     status_lines =
       Enum.sort(statuses.values, Ekser.Status)
-      |> Enum.chunk_by(fn element -> element.job end)
+      |> Enum.chunk_by(fn element -> element.job_name end)
       |> Enum.reduce([], fn element, acc -> [section_to_string(element) | acc] end)
 
     to_print = ["Status ", name, " returned:", "\n" | status_lines]
@@ -133,6 +133,6 @@ defmodule Ekser.StatusServ do
         [Ekser.Status.to_iodata(element) | acc]
       end)
 
-    [Enum.at(section_results, 0).job, ":\n" | section_results]
+    [Enum.at(section_results, 0).job_name, ":\n" | section_results]
   end
 end

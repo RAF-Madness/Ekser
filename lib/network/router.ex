@@ -52,11 +52,6 @@ defmodule Ekser.Router do
     GenServer.call(Ekser.Router, {:bootstrap, closure})
   end
 
-  @spec broadcast(function()) :: :ok
-  def broadcast(closure) do
-    GenServer.call(Ekser.Router, {:broadcast, closure})
-  end
-
   # Server Functions
 
   @impl GenServer
@@ -101,18 +96,6 @@ defmodule Ekser.Router do
   end
 
   @impl GenServer
-  def handle_call({:broadcast, closure}, _from, table) do
-    message_list = closure.(table.curr, Ekser.RouteTable.get_neighbours(table))
-
-    for message <- message_list,
-        {:ok, route_to} <- Ekser.RouteTable.get_next(table, message.receiver) do
-      dispatch(message, route_to, table.curr.id)
-    end
-
-    {:reply, :ok, table}
-  end
-
-  @impl GenServer
   def handle_cast({:forward, message}, table) do
     {:ok, route_to} = Ekser.RouteTable.get_next(table, message.receiver)
 
@@ -125,8 +108,8 @@ defmodule Ekser.Router do
   def handle_cast({:send, closure}, table) do
     message_list = closure.(table.curr)
 
-    for message <- message_list,
-        {:ok, route_to} <- Ekser.RouteTable.get_next(table, message.receiver) do
+    for message <- message_list do
+      {:ok, route_to} = Ekser.RouteTable.get_next(table, message.receiver)
       dispatch(message, route_to, table.curr.id)
     end
 

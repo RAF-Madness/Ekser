@@ -31,7 +31,7 @@ defmodule Ekser.NodeMap do
         {:unchanged, nodes}
 
       Ekser.Node.same_node?(nodes.curr, node) ->
-        {:ok, %{nodes | node.id => node, curr: node}}
+        {:ok, %{Map.put(nodes, node.id, node) | curr: node}}
 
       true ->
         {:ok, %{nodes | node.id => node}}

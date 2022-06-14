@@ -60,7 +60,7 @@ defmodule Ekser.Config do
     with {true, _} <-
            {Ekser.TCP.is_tcp_port(port), Ekser.TCP.port_prompt()},
          {true, _} <-
-           {Ekser.Node.is_node(bootstrap),
+           {is_struct(bootstrap, Ekser.Node),
             "Bootstrap must be in the form of a node (tuple with id, IP and port)."},
          {true, _} <- {is_timeout(weak_timeout), "Weak timeout must be a positive integer."},
          {true, _} <- {is_timeout(strong_timeout), "Strong timeout must be a positive integer."},

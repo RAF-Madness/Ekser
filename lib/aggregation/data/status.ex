@@ -29,9 +29,9 @@ defmodule Ekser.Status do
 
   def compare(status1, status2) do
     cond do
-      status1.job === status2.job -> :eq
-      status1.job <= status2.job -> :lt
-      status1.job >= status2.job -> :gt
+      status1.job_name === status2.job_name -> :eq
+      status1.job_name <= status2.job_name -> :lt
+      status1.job_name >= status2.job_name -> :gt
     end
   end
 
@@ -49,7 +49,7 @@ end
 
 defimpl String.Chars, for: Ekser.Status do
   def to_string(term) do
-    "#{term.job} #{term.fractal_id} - #{term.points} points calculated."
+    "#{term.job_name} #{term.fractal_id} - #{term.points} points calculated."
   end
 end
 
