@@ -7,8 +7,8 @@ defmodule Ekser.Message.Leave do
   end
 
   @impl Ekser.Message
-  def new(_) do
-    Ekser.Message.generate_bootstrap_closure(__MODULE__)
+  def new(curr, bootstrap) do
+    Ekser.Message.new(__MODULE__, curr, bootstrap, [], nil)
   end
 
   @impl Ekser.Message
@@ -25,9 +25,8 @@ defmodule Ekser.Message.Join do
     nil
   end
 
-  @impl Ekser.Message
-  def new(_) do
-    Ekser.Message.generate_bootstrap_closure(__MODULE__)
+  def new(curr, bootstrap) do
+    Ekser.Message.new(__MODULE__, curr, bootstrap, [], nil)
   end
 
   @impl Ekser.Message
@@ -45,8 +44,8 @@ defmodule Ekser.Message.Reject do
   end
 
   @impl Ekser.Message
-  def new(receivers, _) do
-    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, nil)
+  def new(curr, receiver) do
+    Ekser.Message.new(__MODULE__, curr, receiver, [], nil)
   end
 
   @impl Ekser.Message
@@ -66,9 +65,8 @@ defmodule Ekser.Message.Contact do
     end
   end
 
-  @impl Ekser.Message
-  def new(receivers, node) do
-    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, node)
+  def new(curr, receiver, node) do
+    Ekser.Message.new(__MODULE__, curr, receiver, [], node)
   end
 
   @impl Ekser.Message
@@ -78,10 +76,10 @@ defmodule Ekser.Message.Contact do
         curr = %Ekser.Node{message.receiver | id: 0}
         :ok = Ekser.Router.update_curr(curr)
         :ok = Ekser.NodeStore.receive_node(curr)
-        {:bootstrap, Ekser.Message.Join.new(nil)}
+        {:bootstrap, fn curr, bootstrap -> Ekser.Message.Join.new(curr, bootstrap) end}
 
       false ->
-        {:send, Ekser.Message.SystemKnock.new([message.payload], 0)}
+        {:send, fn curr -> [Ekser.Message.SystemKnock.new(curr, message.payload)] end}
     end
   end
 end
@@ -94,17 +92,20 @@ defmodule Ekser.Message.Hail do
     nil
   end
 
-  @impl Ekser.Message
-  def new(_) do
-    Ekser.Message.generate_bootstrap_closure(__MODULE__)
+  def new(curr, bootstrap) do
+    Ekser.Message.new(__MODULE__, curr, bootstrap, [], nil)
   end
 
   @impl Ekser.Message
   def send_effect(message) do
     {:send,
-     Ekser.Message.Contact.new(
-       [message.sender],
-       Ekser.Node.new(-1, message.sender.ip, message.sender.port, "", "")
-     )}
+     fn curr ->
+       [
+         Ekser.Message.Contact.new(
+           message.sender,
+           Ekser.Node.new(-1, message.sender.ip, message.sender.port, "", "")
+         )
+       ]
+     end}
   end
 end

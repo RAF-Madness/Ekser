@@ -83,12 +83,12 @@ end
 defimpl Jason.Encoder, for: Ekser.Config do
   def encode(value, opts) do
     map = %{
-      port: value.port,
-      bootstrapIpAddress: Ekser.TCP.from_ip(value.bootstrap.ip),
-      bootstrapPort: value.bootstrap.port,
-      weakLimit: value.watchdog_timeout,
-      strongLimit: value.failure_timeout,
-      jobs: value.jobs
+      "port" => value.port,
+      "bootstrapIpAddress" => Ekser.TCP.from_ip(value.bootstrap.ip),
+      "bootstrapPort" => value.bootstrap.port,
+      "weakLimit" => value.watchdog_timeout,
+      "strongLimit" => value.failure_timeout,
+      "jobs" => value.jobs
     }
 
     Jason.Encode.map(map, opts)

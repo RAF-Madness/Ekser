@@ -6,9 +6,8 @@ defmodule Ekser.Message.Entered do
     nil
   end
 
-  @impl Ekser.Message
-  def new(receivers, _) do
-    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, nil)
+  def new(curr, receiver) do
+    Ekser.Message.new(__MODULE__, curr, receiver, [], nil)
   end
 
   @impl Ekser.Message
@@ -25,9 +24,8 @@ defmodule Ekser.Message.ConnectionResponse do
     nil
   end
 
-  @impl Ekser.Message
-  def new(receivers, _) do
-    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, nil)
+  def new(curr, receiver) do
+    Ekser.Message.new(__MODULE__, curr, receiver, [], nil)
   end
 
   @impl Ekser.Message
@@ -38,12 +36,15 @@ defmodule Ekser.Message.ConnectionResponse do
       Ekser.NodeStore.get_nodes([])
       |> Map.pop!(:curr)
 
-    closure =
+    receivers =
       nodes
       |> Map.pop(curr.id)
       |> elem(1)
       |> Map.values()
-      |> Ekser.Message.Entered.new(nil)
+
+    closure = fn curr ->
+      receivers |> Enum.map(fn receiver -> Ekser.Message.Entered.new(curr, receiver) end)
+    end
 
     {:send, closure}
   end
@@ -57,15 +58,14 @@ defmodule Ekser.Message.ConnectionRequest do
     nil
   end
 
-  @impl Ekser.Message
-  def new(receivers, _) do
-    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, nil)
+  def new(curr, receiver) do
+    Ekser.Message.new(__MODULE__, curr, receiver, [], nil)
   end
 
   @impl Ekser.Message
   def send_effect(message) do
     :ok = Ekser.Router.set_prev(message.sender)
-    {:send, Ekser.Message.ConnectionResponse.new([message.sender], 0)}
+    {:send, fn curr -> [Ekser.Message.ConnectionResponse.new(curr, message.sender)] end}
   end
 end
 
@@ -80,19 +80,33 @@ defmodule Ekser.Message.Welcome do
     end
   end
 
-  @impl Ekser.Message
-  def new(receivers, dht) do
-    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, dht)
+  def new(curr, receiver, dht) do
+    Ekser.Message.new(__MODULE__, curr, receiver, [], dht)
   end
 
   @impl Ekser.Message
   def send_effect(message) do
     :ok = Ekser.Router.set_prev(message.sender)
     :ok = Ekser.JobStore.receive_system(message.payload)
+    number = Ekser.NodeMap.get_number_of_jobs(message.payload.nodes)
 
     first_node = Ekser.NodeStore.receive_system(message.payload)
 
-    {:send, Ekser.Message.ConnectionRequest.new([first_node], 0)}
+    case number do
+      0 ->
+        {:send, fn curr -> [Ekser.Message.ConnectionRequest.new(curr, first_node)] end}
+
+      _ ->
+        cluster_node = message.payload.nodes[number]
+
+        {:send,
+         fn curr ->
+           [
+             Ekser.Message.ConnectionRequest.new(curr, first_node),
+             Ekser.Message.ClusterKnock.new(curr, cluster_node)
+           ]
+         end}
+    end
   end
 end
 
@@ -104,9 +118,8 @@ defmodule Ekser.Message.SystemKnock do
     nil
   end
 
-  @impl Ekser.Message
-  def new(receivers, _) do
-    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, nil)
+  def new(curr, receiver) do
+    Ekser.Message.new(__MODULE__, curr, receiver, [], nil)
   end
 
   @impl Ekser.Message
@@ -115,7 +128,7 @@ defmodule Ekser.Message.SystemKnock do
     map = Ekser.NodeStore.introduce_new()
     jobs = Ekser.JobStore.get_all_jobs()
     dht = Ekser.DHT.new(map.id, map.nodes, jobs)
-    {:send, Ekser.Message.Welcome.new([message.sender], dht)}
+    {:send, fn curr -> [Ekser.Message.Welcome.new(curr, message.sender, dht)] end}
   end
 end
 
@@ -127,28 +140,8 @@ defmodule Ekser.Message.Quit do
     nil
   end
 
-  @impl Ekser.Message
-  def new(receivers, _) do
-    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, nil)
-  end
-
-  @impl Ekser.Message
-  def send_effect(_) do
-    :exit
-  end
-end
-
-defmodule Ekser.Message.Quit do
-  @behaviour Ekser.Message
-
-  @impl Ekser.Message
-  def parse_payload(_) do
-    nil
-  end
-
-  @impl Ekser.Message
-  def new(receivers, _) do
-    Ekser.Message.generate_receivers_closure(__MODULE__, receivers, nil)
+  def new(curr, receiver) do
+    Ekser.Message.new(__MODULE__, curr, receiver, [], nil)
   end
 
   @impl Ekser.Message

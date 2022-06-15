@@ -18,7 +18,7 @@ defmodule Ekser.Supervisor do
     )
 
     sup_flags = %{
-      strategy: :one_for_one,
+      strategy: :rest_for_all,
       intensity: 0,
       period: 5,
       auto_shutdown: :any_significant
@@ -46,13 +46,11 @@ defmodule Ekser.Supervisor do
     [
       Task.Supervisor.child_spec(name: Ekser.SenderSup),
       Ekser.Router.child_spec(value: {config.bootstrap, curr}, name: Ekser.Router),
-      Ekser.NodeStore.child_spec(value: curr, name: Ekser.NodeStore),
       Ekser.JobStore.child_spec(value: config.jobs, name: Ekser.JobStore),
-      Ekser.FractalSup.child_spec(name: Ekser.FractalSup),
-      Ekser.FractalServ.child_spec(name: Ekser.FractalServ),
-      Ekser.AggregateSup.child_spec(name: Ekser.AggregateSup),
-      Registry.child_spec(keys: :unique, name: Ekser.AggregateReg),
-      Ekser.AggregateServ.child_spec(name: Ekser.AggregateServ),
+      Ekser.NodeStore.child_spec(value: curr, name: Ekser.NodeStore),
+      Ekser.WorkSup.child_spec(name: Ekser.WorkSup),
+      Ekser.FractalServer.child_spec(name: Ekser.FractalServer),
+      Registry.child_spec(keys: :duplicate, name: Ekser.AggregateReg),
       Ekser.InputSup.child_spec(value: curr, name: Ekser.InputSup)
     ]
   end

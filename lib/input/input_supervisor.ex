@@ -22,7 +22,7 @@ defmodule Ekser.InputSup do
   def init(curr) do
     sup_flags = %{
       strategy: :one_for_one,
-      intensity: 1,
+      intensity: 0,
       period: 5,
       auto_shutdown: :any_significant
     }

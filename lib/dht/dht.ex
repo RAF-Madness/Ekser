@@ -38,7 +38,7 @@ end
 
 defimpl Jason.Encoder, for: Ekser.DHT do
   def encode(value, opts) do
-    map = Map.from_struct(value)
+    map = %{"id" => value.id, "nodes" => value.nodes, "jobs" => value.jobs}
 
     Jason.Encode.map(map, opts)
   end

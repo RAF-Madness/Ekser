@@ -12,26 +12,26 @@ defmodule Ekser.JobStore do
 
   @spec job_exists?(String.t()) :: boolean()
   def job_exists?(job_name) do
-    Agent.get(Ekser.JobStore, Ekser.JobMap, :has_job?, [job_name])
+    Agent.get(__MODULE__, Ekser.JobMap, :has_job?, [job_name])
   end
 
   @spec get_job_by_name(String.t()) :: %Ekser.Job{} | nil
   def get_job_by_name(job_name) do
-    Agent.get(Ekser.JobStore, Ekser.JobMap, :get_job, [job_name])
+    Agent.get(__MODULE__, Ekser.JobMap, :get_job, [job_name])
   end
 
   @spec get_all_jobs() :: %{String.t() => %Ekser.Job{}}
   def get_all_jobs() do
-    Agent.get(Ekser.JobStore, Ekser.JobMap, :get_jobs, [])
+    Agent.get(__MODULE__, Ekser.JobMap, :get_jobs, [])
   end
 
   @spec receive_job(%Ekser.Job{}) :: :ok | :unchanged
   def receive_job(job) do
-    Agent.get_and_update(Ekser.JobStore, Ekser.JobMap, :add_job, [job])
+    Agent.get_and_update(__MODULE__, Ekser.JobMap, :add_job, [job])
   end
 
   @spec receive_system(%Ekser.DHT{}) :: :ok
   def receive_system(dht) do
-    Agent.update(Ekser.JobStore, Ekser.JobMap, :merge_jobs, [dht.jobs])
+    Agent.update(__MODULE__, Ekser.JobMap, :merge_jobs, [dht.jobs])
   end
 end

@@ -5,6 +5,46 @@ defmodule Ekser.NodeMap do
     %{curr: curr}
   end
 
+  def get_cluster_neighbours(nodes) do
+    nodes
+    |> Map.values()
+    |> Enum.filter(fn node ->
+      Ekser.FractalId.compare_edit_distance(nodes.curr.fractal_id, node.fractal_id, 1) === 1
+    end)
+  end
+
+  def get_number_of_jobs(nodes) do
+    nodes
+    |> Map.values()
+    |> Enum.map(fn node -> node.job_name end)
+    |> Enum.uniq()
+    |> length()
+  end
+
+  def get_next_fractal_id(nodes) do
+    job = Ekser.JobStore.get_job_by_name(nodes.curr.job_name)
+
+    case job do
+      nil ->
+        :error
+
+      _ ->
+        [top_id] =
+          nodes
+          |> Map.values()
+          |> Enum.filter(fn node -> node.job_name === nodes.curr.job_name end)
+          |> Enum.map(fn node ->
+            {value, _} = Integer.parse(node.fractal_id, job.count)
+            value
+          end)
+          |> Enum.sort()
+          |> Enum.reverse()
+          |> Enum.take(1)
+
+        Ekser.FractalId.get_next(top_id, job.count)
+    end
+  end
+
   def get_nodes(nodes, job_name, fractal_id) do
     Map.filter(nodes, fn {_, node} ->
       node.job_name === job_name and node.fractal_id === fractal_id

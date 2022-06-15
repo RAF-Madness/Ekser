@@ -3,8 +3,6 @@ defmodule Ekser.Message do
 
   @behaviour Ekser.Serializable
   @callback parse_payload(payload :: any()) :: any() | {:error, String.t()}
-  @callback new(list(%Ekser.Node{}), any()) :: (%Ekser.Node{} -> %__MODULE__{})
-  @callback new(any()) :: (%Ekser.Node{}, %Ekser.Node{} -> %__MODULE__{})
   @callback send_effect(message :: %__MODULE__{}) ::
               :ok
               | :exit
@@ -47,28 +45,6 @@ defmodule Ekser.Message do
     payload = json["payload"]
 
     new(type, sender, receiver, routes, payload)
-  end
-
-  def generate_bootstrap_closure(module) do
-    fn curr, bootstrap ->
-      Ekser.Message.new(module, curr, bootstrap, [], nil)
-    end
-  end
-
-  def generate_neighbours_closure(module) do
-    fn curr, neighbours ->
-      for neighbour <- neighbours do
-        Ekser.Message.new(module, curr, neighbour, [], nil)
-      end
-    end
-  end
-
-  def generate_receivers_closure(module, receivers, payload) do
-    fn curr ->
-      for receiver <- receivers do
-        Ekser.Message.new(module, curr, receiver, [], payload)
-      end
-    end
   end
 
   @spec new(

@@ -23,27 +23,37 @@ defmodule Ekser.NodeStore do
 
   @spec enter_network(%Ekser.Node{}) :: :ok
   def enter_network(node) do
-    Agent.update(Ekser.NodeStore, Ekser.NodeMap, :add_node, [node])
+    Agent.update(__MODULE__, Ekser.NodeMap, :add_node, [node])
   end
 
   @spec leave_network(%Ekser.Node{}) :: :ok
   def leave_network(node) do
-    Agent.update(Ekser.NodeStore, Ekser.NodeMap, :remove_node, [node])
+    Agent.update(__MODULE__, Ekser.NodeMap, :remove_node, [node])
   end
 
   @spec receive_node(%Ekser.Node{}) :: :ok | :unchanged
   def receive_node(node) do
-    Agent.get_and_update(Ekser.NodeStore, Ekser.NodeMap, :update_node, [node])
+    Agent.get_and_update(__MODULE__, Ekser.NodeMap, :update_node, [node])
   end
 
   @spec receive_system(%Ekser.DHT{}) ::
           %Ekser.Node{} | {:error, String.t()}
   def receive_system(dht) do
-    Agent.get_and_update(Ekser.NodeStore, Ekser.NodeMap, :set_system, [dht.id, dht.nodes])
+    Agent.get_and_update(__MODULE__, Ekser.NodeMap, :set_system, [dht.id, dht.nodes])
   end
 
   @spec get_nodes(list(String.t())) :: %{pos_integer() => %Ekser.Node{}}
   def get_nodes(arg_list) do
-    Agent.get(Ekser.NodeStore, Ekser.NodeMap, :get_nodes, arg_list)
+    Agent.get(__MODULE__, Ekser.NodeMap, :get_nodes, arg_list)
+  end
+
+  @spec get_cluster_neighbours() :: list(%Ekser.Node{})
+  def get_cluster_neighbours() do
+    Agent.get(__MODULE__, Ekser.NodeMap, :get_cluster_neighbours, [])
+  end
+
+  @spec get_next_fractal_id() :: String.t() | :error
+  def get_next_fractal_id() do
+    Agent.get(__MODULE__, Ekser.NodeMap, :get_next_fractal_id, [])
   end
 end
