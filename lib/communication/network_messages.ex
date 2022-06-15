@@ -2,17 +2,20 @@ defmodule Ekser.Message.Entered do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
-  def parse_payload(_) do
-    nil
+  def parse_payload(payload) do
+    case is_struct(payload, Ekser.Node) do
+      true -> payload
+      false -> Ekser.Node.create_from_json(payload)
+    end
   end
 
-  def new(curr, receiver) do
-    Ekser.Message.new(__MODULE__, curr, receiver, [], nil)
+  def new(curr, receiver, node) do
+    Ekser.Message.new(__MODULE__, curr, receiver, [], node)
   end
 
   @impl Ekser.Message
   def send_effect(message) do
-    Ekser.NodeStore.enter_network(message.sender)
+    Ekser.NodeStore.enter_network(message.payload)
   end
 end
 
@@ -43,7 +46,7 @@ defmodule Ekser.Message.ConnectionResponse do
       |> Map.values()
 
     closure = fn curr ->
-      receivers |> Enum.map(fn receiver -> Ekser.Message.Entered.new(curr, receiver) end)
+      Enum.map(receivers, fn receiver -> Ekser.Message.Entered.new(curr, receiver, curr) end)
     end
 
     {:send, closure}
@@ -88,17 +91,14 @@ defmodule Ekser.Message.Welcome do
   def send_effect(message) do
     :ok = Ekser.Router.set_prev(message.sender)
     :ok = Ekser.JobStore.receive_system(message.payload)
-    number = Ekser.NodeMap.get_number_of_jobs(message.payload.nodes)
 
-    first_node = Ekser.NodeStore.receive_system(message.payload)
+    {first_node, cluster_node} = Ekser.NodeStore.receive_system(message.payload)
 
-    case number do
-      0 ->
+    case cluster_node do
+      nil ->
         {:send, fn curr -> [Ekser.Message.ConnectionRequest.new(curr, first_node)] end}
 
       _ ->
-        cluster_node = message.payload.nodes[number]
-
         {:send,
          fn curr ->
            [

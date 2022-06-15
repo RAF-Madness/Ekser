@@ -19,24 +19,31 @@ defmodule Ekser.ChildServer do
   @impl GenServer
   def handle_continue(:init, [job, fractal_id]) do
     Registry.register(Registry.AggregateRegistry, {Ekser.Message.EnteredCluster, job.name}, nil)
-    {:noreply, {[], job.count, fractal_id}}
+
+    next_id =
+      case fractal_id do
+        "0" -> "0"
+        _ -> fractal_id + "0"
+      end
+
+    {:noreply, {[], job.count, fractal_id, next_id}}
   end
 
   @impl GenServer
-  def handle_call({:response, id, payload}, _from, {responses, count, fractal_id}) do
+  def handle_call({:response, id, payload}, _from, {responses, count, fractal_id, next_id}) do
     new_responses =
       case Ekser.FractalId.is_child?(fractal_id, payload.fractal_id) do
         true -> [payload | responses]
         false -> responses
       end
 
-    case length(new_responses) === count do
+    case length(new_responses) === count - 1 do
       true ->
-        Ekser.FractalServer.reorganise(responses)
-        {:noreply, {[], count, fractal_id}}
+        Ekser.FractalServer.redistribute(responses, next_id)
+        {:noreply, {[], count, next_id, next_id + "0"}}
 
       false ->
-        {:noreply, {responses, count, fractal_id}}
+        {:noreply, {responses, count, fractal_id, next_id}}
     end
   end
 

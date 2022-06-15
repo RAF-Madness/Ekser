@@ -27,6 +27,11 @@ defmodule Ekser.Router do
     GenServer.call(Ekser.Router, {:cluster_neighbours, node})
   end
 
+  @spec wipe_cluster_neighbours() :: :ok
+  def wipe_cluster_neighbours() do
+    GenServer.call(Ekser.Router, :cluster_neighbours)
+  end
+
   @spec set_prev(%Ekser.Node{}) :: :ok
   def set_prev(node) do
     GenServer.call(Ekser.Router, {:prev, node})
@@ -68,6 +73,11 @@ defmodule Ekser.Router do
   def handle_call({:cluster_neighbours, node}, _from, table) do
     {:reply, :ok,
      %Ekser.RouteTable{table | cluster_neighbours: [node | table.cluster_neighbours]}}
+  end
+
+  @impl GenServer
+  def handle_call(:cluster_neighbours, _from, table) do
+    {:reply, :ok, %Ekser.RouteTable{table | cluster_neighbours: []}}
   end
 
   @impl GenServer

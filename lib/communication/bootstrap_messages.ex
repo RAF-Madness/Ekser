@@ -74,7 +74,6 @@ defmodule Ekser.Message.Contact do
     case message.payload.id < 0 do
       true ->
         curr = %Ekser.Node{message.receiver | id: 0}
-        :ok = Ekser.Router.update_curr(curr)
         :ok = Ekser.NodeStore.receive_node(curr)
         {:bootstrap, fn curr, bootstrap -> Ekser.Message.Join.new(curr, bootstrap) end}
 

@@ -20,7 +20,7 @@ defmodule Ekser.ResultServer do
     arg_list = [job.name] ++ rest
 
     {responses, local_info} =
-      Ekser.Aggregate.Ekser.NodeStore.get_nodes(arg_list)
+      Ekser.NodeStore.get_nodes(arg_list)
       |> Ekser.Aggregate.init(
         Ekser.Message.ResultRequest,
         Ekser.Message.ResultResponse,

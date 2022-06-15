@@ -29,8 +29,8 @@ defmodule Ekser.FractalServer do
     GenServer.call(__MODULE__, {:start, points})
   end
 
-  def reorganise(nodes) do
-    GenServer.call(__MODULE__, {:redistribute, nodes})
+  def redistribute(nodes, new_id) do
+    GenServer.call(__MODULE__, {:redistribute, nodes, new_id})
   end
 
   def stop() do
@@ -89,14 +89,26 @@ defmodule Ekser.FractalServer do
   end
 
   @impl GenServer
-  def handle_call({:redistribute, nodes}, state) do
-    closure = fn curr ->
-      Enum.map(nodes, fn node -> Ekser.Message.StartJob.new(curr, node, state.points) end)
-    end
+  def handle_call({:redistribute, nodes, new_id}, state) do
+    # This call has to update DHT/Router with Curr and send an UpdatedNode message because of it
+    # But this isn't supposed to happen if the new_id is the same as the one in state
 
-    Ekser.Router.send(closure)
+    :ok =
+      case new_id === state.fractal_id do
+        true ->
+          :ok
 
-    {:reply, :ok, state}
+        false ->
+          Ekser.NodeStore.update_cluster(state.job_name, new_id)
+
+          fn curr ->
+            Enum.map(nodes, fn node -> Ekser.Message.StartJob.new(curr, node, state.points) end)
+          end
+          |> Ekser.Router.send(closure)
+      end
+
+    new_state = %__MODULE__{state | fractal_id: new_id}
+    {:reply, :ok, new_state}
   end
 
   @impl GenServer

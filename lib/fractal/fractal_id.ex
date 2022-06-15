@@ -3,29 +3,45 @@ defmodule Ekser.FractalId do
     {base_rep, _} = Integer.parse(fractal_id, point_count)
     new_base_rep = base_rep + 1
 
-    string = String.to_integer(base_rep, point_count)
     new_string = String.to_integer(new_base_rep, point_count)
 
-    case String.length(string) === String.length(new_string) do
-      true -> String.pad_leading(new_string, String.length(fractal_id), "0")
-      false -> String.pad_leading(new_string, String.length(fractal_id) + 1, "0")
+    # If the last digit is 0 (cascading), add 1
+    [last_digit | _] = new_string |> String.graphemes() |> Enum.reverse()
+
+    newer_string =
+      case last_digit === "0" do
+        true -> String.to_integer(new_base_rep + 1, point_count)
+        false -> new_string
+      end
+
+    # If the value overflows, replace the first part with 0
+
+    overflow? = String.length(newer_string) > String.length(fractal_id)
+
+    case overflow? do
+      true ->
+        dropped = newer_string |> Enum.drop(1)
+        ["0" | dropped]
+
+      false ->
+        String.pad_leading(newer_string, String.length(fractal_id), "0")
     end
   end
 
   def is_child?(fractal_id, other) do
     list_id = String.graphemes(fractal_id)
 
+    list_other = String.graphemes(other)
+
     removed_tail =
-      list_id
+      list_other
       |> Enum.reverse()
       |> tl()
       |> Enum.reverse()
 
-    list_other = String.graphemes(other)
-
-    with true <- length(list_other) > 0 do
-      (length(list_id) === length(list_other) and length(list_id) === 1) or
-        removed_tail === list_other
+    with true <- length(list_id) > 0 do
+      (fractal_id === "0" and length(list_other) === 0) or
+        removed_tail === list_id
     else
       false -> false
     end

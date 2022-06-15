@@ -5,15 +5,25 @@ defmodule Ekser.NodeMap do
     %{curr: curr}
   end
 
-  def get_cluster_neighbours(nodes) do
-    nodes
-    |> Map.values()
-    |> Enum.filter(fn node ->
-      Ekser.FractalId.compare_edit_distance(nodes.curr.fractal_id, node.fractal_id, 1) === 1
-    end)
+  def update_curr_fractal(nodes, job_name, fractal_id) do
+    new_curr = %Ekser.Node{nodes.curr | job_name: job_name, fractal_id: fractal_id}
+    update_node(nodes, new_curr)
   end
 
-  def get_number_of_jobs(nodes) do
+  def get_cluster_neighbours(nodes, job_name, fractal_id) do
+    new_nodes = update_curr_fractal(nodes, job_name, fractal_id)
+
+    neighbours =
+      new_nodes
+      |> Map.values()
+      |> Enum.filter(fn node ->
+        Ekser.FractalId.compare_edit_distance(new_nodes.curr.fractal_id, node.fractal_id, 1) === 1
+      end)
+
+    {neighbours, new_nodes}
+  end
+
+  defp get_number_of_jobs(nodes) do
     nodes
     |> Map.values()
     |> Enum.map(fn node -> node.job_name end)
@@ -29,11 +39,16 @@ defmodule Ekser.NodeMap do
         :error
 
       _ ->
-        [top_id] =
+        filtered_nodes =
           nodes
           |> Map.values()
-          |> Enum.filter(fn node -> node.job_name === nodes.curr.job_name end)
-          |> Enum.map(fn node ->
+          |> Stream.filter(fn node -> node.job_name === nodes.curr.job_name end)
+
+        max = Enum.max_by(filtered_nodes, fn node -> String.length(node.fractal_id) end)
+
+        [top_id] =
+          Stream.filter(fn node -> String.length(node.fractal_id) === max end)
+          |> Stream.map(fn node ->
             {value, _} = Integer.parse(node.fractal_id, job.count)
             value
           end)
@@ -71,6 +86,7 @@ defmodule Ekser.NodeMap do
         {:unchanged, nodes}
 
       Ekser.Node.same_node?(nodes.curr, node) ->
+        Ekser.Router.update_curr(node)
         {:ok, %{Map.put(nodes, node.id, node) | curr: node}}
 
       true ->
@@ -90,6 +106,6 @@ defmodule Ekser.NodeMap do
       |> Map.put(curr.id, curr)
       |> Map.put(:curr, curr)
 
-    {new_nodes[0], new_nodes}
+    {{new_nodes[0], new_nodes[id - get_number_of_jobs(nodes)]}, new_nodes}
   end
 end

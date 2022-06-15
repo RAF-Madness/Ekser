@@ -47,9 +47,16 @@ defmodule Ekser.NodeStore do
     Agent.get(__MODULE__, Ekser.NodeMap, :get_nodes, arg_list)
   end
 
-  @spec get_cluster_neighbours() :: list(%Ekser.Node{})
-  def get_cluster_neighbours() do
-    Agent.get(__MODULE__, Ekser.NodeMap, :get_cluster_neighbours, [])
+  @spec get_cluster_neighbours(String.t(), String.t()) :: list(%Ekser.Node{})
+  def get_cluster_neighbours(job_name, fractal_id) do
+    Agent.get_and_update(__MODULE__, Ekser.NodeMap, :get_cluster_neighbours, [
+      job_name,
+      fractal_id
+    ])
+  end
+
+  def update_cluster(job_name, fractal_id) do
+    Agent.get(__MODULE__, Ekser.NodeMap, :update_curr_fractal, [job_name, fractal_id])
   end
 
   @spec get_next_fractal_id() :: String.t() | :error
