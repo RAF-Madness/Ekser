@@ -1,4 +1,4 @@
-defmodule Ekser.Message.StartJob do
+defmodule Ekser.Message.Start_Job do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -19,7 +19,7 @@ defmodule Ekser.Message.StartJob do
   end
 end
 
-defmodule Ekser.Message.StatusResponse do
+defmodule Ekser.Message.Status_Response do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -40,7 +40,7 @@ defmodule Ekser.Message.StatusResponse do
   end
 end
 
-defmodule Ekser.Message.StatusRequest do
+defmodule Ekser.Message.Status_Request do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -55,11 +55,11 @@ defmodule Ekser.Message.StatusRequest do
   @impl Ekser.Message
   def send_effect(message) do
     work_done = Ekser.FractalServer.status()
-    {:send, fn curr -> [Ekser.Message.StatusResponse.new(curr, message.sender, work_done)] end}
+    {:send, fn curr -> [Ekser.Message.Status_Response.new(curr, message.sender, work_done)] end}
   end
 end
 
-defmodule Ekser.Message.ResultResponse do
+defmodule Ekser.Message.Result_Response do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -80,7 +80,7 @@ defmodule Ekser.Message.ResultResponse do
   end
 end
 
-defmodule Ekser.Message.ResultRequest do
+defmodule Ekser.Message.Result_Request do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -95,11 +95,11 @@ defmodule Ekser.Message.ResultRequest do
   @impl Ekser.Message
   def send_effect(message) do
     work_done = Ekser.FractalServer.result()
-    {:send, fn curr -> [Ekser.Message.ResultResponse.new(curr, message.sender, work_done)] end}
+    {:send, fn curr -> [Ekser.Message.Result_Response.new(curr, message.sender, work_done)] end}
   end
 end
 
-defmodule Ekser.Message.StoppedJobInfo do
+defmodule Ekser.Message.Stopped_Job_Info do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -120,7 +120,7 @@ defmodule Ekser.Message.StoppedJobInfo do
   end
 end
 
-defmodule Ekser.Message.StopShareJob do
+defmodule Ekser.Message.Stop_Share_Job do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -148,6 +148,6 @@ defmodule Ekser.Message.StopShareJob do
     end
 
     work_done = Ekser.FractalServer.stop()
-    {:send, fn curr -> [Ekser.Message.StoppedJobInfo.new(curr, message.sender, work_done)] end}
+    {:send, fn curr -> [Ekser.Message.Stopped_Job_Info.new(curr, message.sender, work_done)] end}
   end
 end

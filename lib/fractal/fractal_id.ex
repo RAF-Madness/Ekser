@@ -1,6 +1,7 @@
 defmodule Ekser.FractalId do
   def get_next(fractal_id, point_count) do
-    {base_rep, _} = Integer.parse(fractal_id, point_count)
+    # {base_rep, _} = Integer.parse(fractal_id, point_count)
+    base_rep = String.to_integer(fractal_id, point_count)
     new_base_rep = base_rep + 1
 
     new_string = Integer.to_string(new_base_rep, point_count)
@@ -63,8 +64,7 @@ defmodule Ekser.FractalId do
   end
 
   def valid_fractal_id?(fractal_id) do
-    with true <- is_binary(fractal_id),
-         true <- is_number?(fractal_id) do
+    with true <- is_binary(fractal_id) do
       true
     else
       _ -> false
@@ -87,13 +87,6 @@ defmodule Ekser.FractalId do
 
       true ->
         {:cont, acc}
-    end
-  end
-
-  defp is_number?(fractal_id) do
-    case Integer.parse(fractal_id) do
-      :error -> false
-      {_, leftover} -> String.trim(leftover) === ""
     end
   end
 end

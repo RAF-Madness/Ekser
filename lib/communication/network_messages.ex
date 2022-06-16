@@ -19,7 +19,7 @@ defmodule Ekser.Message.Entered do
   end
 end
 
-defmodule Ekser.Message.ConnectionResponse do
+defmodule Ekser.Message.Connection_Response do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -49,11 +49,15 @@ defmodule Ekser.Message.ConnectionResponse do
       Enum.map(receivers, fn receiver -> Ekser.Message.Entered.new(curr, receiver, curr) end)
     end
 
-    {:send, closure}
+    bootstrap_closure = fn curr, bootstrap ->
+      Ekser.Message.Join.new(curr, bootstrap, curr)
+    end
+
+    {{:send, closure}, {:bootstrap, bootstrap_closure}}
   end
 end
 
-defmodule Ekser.Message.ConnectionRequest do
+defmodule Ekser.Message.Connection_Request do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -68,12 +72,11 @@ defmodule Ekser.Message.ConnectionRequest do
   @impl Ekser.Message
   def send_effect(message) do
     :ok = Ekser.Router.set_prev(message.sender)
-    {:send, fn curr -> [Ekser.Message.ConnectionResponse.new(curr, message.sender)] end}
+    {:send, fn curr -> [Ekser.Message.Connection_Response.new(curr, message.sender)] end}
   end
 end
 
 defmodule Ekser.Message.Welcome do
-  require Logger
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -96,23 +99,22 @@ defmodule Ekser.Message.Welcome do
     {first_node, cluster_node} = Ekser.NodeStore.receive_system(message.payload)
 
     case cluster_node do
-      test when not is_struct(cluster_node, Ekser.Node) ->
-        Logger.error(test)
-        {:send, fn curr -> [Ekser.Message.ConnectionRequest.new(curr, first_node)] end}
+      nil ->
+        {:send, fn curr -> [Ekser.Message.Connection_Request.new(curr, first_node)] end}
 
       _ ->
         {:send,
          fn curr ->
            [
-             Ekser.Message.ConnectionRequest.new(curr, first_node),
-             Ekser.Message.ClusterKnock.new(curr, cluster_node)
+             Ekser.Message.Connection_Request.new(curr, first_node),
+             Ekser.Message.Cluster_Knock.new(curr, cluster_node)
            ]
          end}
     end
   end
 end
 
-defmodule Ekser.Message.SystemKnock do
+defmodule Ekser.Message.System_Knock do
   @behaviour Ekser.Message
 
   @impl Ekser.Message

@@ -1,5 +1,5 @@
 {
-    "port": 1100,
+    "port": 1200,
     "bootstrapIpAddress": "192.168.0.29",
     "bootstrapPort": 2000,
     "weakLimit": 500,
@@ -8,21 +8,21 @@
         {
             "name": "triangle",
             "pointCount": 3,
-            "p": 0.1,
-            "width": 1920,
-            "height": 1080,
+            "p": 0.3,
+            "width": 200,
+            "height": 200,
             "mainPoints": [
                 {
                     "x": 0,
                     "y": 0
                 },
                 {
-                    "x": 1,
-                    "y": 2
+                    "x": 99,
+                    "y": 99
                 },
                 {
-                    "x": 1,
-                    "y": 4
+                    "x": 199,
+                    "y": 0
                 }
             ]
         }

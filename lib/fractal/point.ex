@@ -43,10 +43,13 @@ defmodule Ekser.Point do
   def scale_to_fractal_id(ratio, fractal_id, {anchor_points, points}) do
     digits = Ekser.FractalId.get_digits(fractal_id)
 
-    Enum.reduce(digits, {anchor_points, points}, fn anchor_index, {anchor_points, points} ->
-      anchor = Enum.at(anchor_points, anchor_index)
-      {scale_points(ratio, anchor, anchor_points), scale_points(ratio, anchor, points)}
-    end)
+    {scaled_anchors, scaled_points} =
+      Enum.reduce(digits, {anchor_points, points}, fn anchor_index, {anchor_points, points} ->
+        anchor = Enum.at(anchor_points, anchor_index)
+        {scale_points(ratio, anchor, anchor_points), scale_points(ratio, anchor, points)}
+      end)
+
+    {Enum.to_list(scaled_anchors), Enum.to_list(scaled_points)}
   end
 
   @spec next_point(float(), list(point()), point()) :: point()

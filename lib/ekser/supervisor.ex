@@ -28,7 +28,8 @@ defmodule Ekser.Supervisor do
   end
 
   defp children() do
-    config = Ekser.Config.read_config("config.json")
+    [config_file] = System.argv() |> Enum.take(1)
+    config = Ekser.Config.read_config(config_file)
 
     # ip =
     #  System.cmd("nslookup", ["myip.opendns.com", "resolver1.opendns.com"])

@@ -4,7 +4,7 @@ defmodule Ekser.ClusterServer do
 
   # Client API
 
-  def start_link([args]) do
+  def start_link(args) do
     GenServer.start_link(__MODULE__, args)
   end
 
@@ -20,8 +20,8 @@ defmodule Ekser.ClusterServer do
     {responses, _} =
       Ekser.NodeStore.get_cluster_neighbours(job_name, fractal_id)
       |> Ekser.Aggregate.init(
-        Ekser.Message.ClusterConnectionRequest,
-        Ekser.Message.ClusterConnectoinResponse,
+        Ekser.Message.Cluster_Connection_Request,
+        Ekser.Message.Cluster_Connection_Response,
         fn -> nil end,
         nil
       )
@@ -50,12 +50,18 @@ defmodule Ekser.ClusterServer do
   end
 
   defp complete() do
+    all_nodes = Ekser.NodeStore.get_nodes([])
+
+    {curr, nodes_without_curr} = Map.pop(all_nodes, :curr)
+
     nodes =
-      Ekser.NodeStore.get_nodes([])
+      nodes_without_curr
+      |> Map.pop(curr.id)
+      |> elem(1)
       |> Map.values()
 
     fn curr ->
-      Enum.map(nodes, fn node -> Ekser.Message.EnteredCluster.new(curr, node, curr) end)
+      Enum.map(nodes, fn node -> Ekser.Message.Entered_Cluster.new(curr, node, curr) end)
     end
     |> Ekser.Router.send()
 

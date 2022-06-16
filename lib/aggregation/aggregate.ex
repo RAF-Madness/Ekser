@@ -23,37 +23,39 @@ defmodule Ekser.Aggregate do
           new_map
       end
 
-    :ok =
-      case nodes_to_send === %{} do
-        false ->
-          :ok
+    case nodes_to_send === %{} do
+      false ->
+        nodes_to_send
+        |> Map.keys()
+        |> register_keys(response_module)
 
-        true ->
-          receivers =
-            nodes_to_send
-            |> Map.values()
-            |> register_keys(response_module)
+        receivers =
+          nodes_to_send
+          |> Map.values()
 
-          fn curr ->
-            Enum.map(receivers, fn receiver -> message_module.new(curr, receiver, arg) end)
-          end
-          |> Ekser.Router.send()
-      end
+        fn curr ->
+          Enum.map(receivers, fn receiver -> message_module.new(curr, receiver, arg) end)
+        end
+        |> Ekser.Router.send()
+
+      true ->
+        :ok
+    end
 
     responses = Map.new(nodes_without_curr, fn {k, _} -> {k, false} end)
 
     case curr do
       nil -> {responses, nil}
-      _ -> {responses, self_function.()}
+      _ -> {Map.put(responses, curr.id, true), self_function.()}
     end
   end
 
   defp register_keys(node_ids, message_module) do
     Enum.each(node_ids, fn id ->
-      Registry.register(Registry.AggregateRegistry, {message_module, id}, nil)
+      Registry.register(Ekser.AggregateReg, {message_module, id}, nil)
     end)
 
-    node_ids
+    :ok
   end
 
   def is_complete?(responses) do

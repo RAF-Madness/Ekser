@@ -4,7 +4,7 @@ defmodule Ekser.ResultServer do
 
   # Client API
 
-  def start_link([args]) do
+  def start_link(args) do
     GenServer.start_link(__MODULE__, args)
   end
 
@@ -22,8 +22,8 @@ defmodule Ekser.ResultServer do
     {responses, local_info} =
       Ekser.NodeStore.get_nodes(arg_list)
       |> Ekser.Aggregate.init(
-        Ekser.Message.ResultRequest,
-        Ekser.Message.ResultResponse,
+        Ekser.Message.Result_Request,
+        Ekser.Message.Result_Response,
         fn -> Ekser.FractalServer.result() end,
         nil
       )
@@ -59,8 +59,6 @@ defmodule Ekser.ResultServer do
   end
 
   defp complete(results, output, resolution) do
-    IO.inspect(output, results)
-
     file =
       "result.png"
       |> Path.expand()
@@ -79,7 +77,7 @@ defmodule Ekser.ResultServer do
       |> Stream.chunk_by(fn {_, y} -> y end)
 
     height_drawn =
-      Enum.reduce(stream, fn list, acc ->
+      Enum.reduce(stream, 0, fn list, acc ->
         new_acc = check_rows(list, acc, png, elem(resolution, 1))
         generate_pixels(png, elem(resolution, 1), Enum.map(list, fn {x, _} -> x end))
         new_acc + 1

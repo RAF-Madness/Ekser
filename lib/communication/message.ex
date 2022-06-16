@@ -8,6 +8,7 @@ defmodule Ekser.Message do
               | :exit
               | {:bootstrap, function()}
               | {:send, function()}
+              | {{:send, function()}, {:closure, function()}}
 
   @enforce_keys [:type, :sender, :receiver, :routes, :payload]
   defstruct @enforce_keys
@@ -24,7 +25,7 @@ defmodule Ekser.Message do
         json["type"]
         |> String.split("_")
         |> Enum.map(fn string -> String.capitalize(string) end)
-        |> Enum.join()
+        |> Enum.join("_")
         |> concat.()
         |> String.to_existing_atom()
       rescue

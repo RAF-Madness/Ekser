@@ -5,7 +5,7 @@ defmodule Ekser.StatusServer do
 
   # Client API
 
-  def start_link([args]) do
+  def start_link(args) do
     GenServer.start_link(__MODULE__, args)
   end
 
@@ -21,8 +21,8 @@ defmodule Ekser.StatusServer do
     {responses, local_info} =
       Ekser.NodeStore.get_nodes(rest)
       |> Ekser.Aggregate.init(
-        Ekser.Message.StatusRequest,
-        Ekser.Message.StatusResponse,
+        Ekser.Message.Status_Request,
+        Ekser.Message.Status_Response,
         fn -> Ekser.FractalServer.status() end,
         nil
       )

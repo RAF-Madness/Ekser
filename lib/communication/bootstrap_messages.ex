@@ -79,7 +79,8 @@ defmodule Ekser.Message.Contact do
         {:bootstrap, fn curr, bootstrap -> Ekser.Message.Join.new(curr, bootstrap, curr) end}
 
       false ->
-        {:send, fn curr -> [Ekser.Message.SystemKnock.new(curr, message.payload)] end}
+        Ekser.Router.set_next(message.payload)
+        {:send, fn curr -> [Ekser.Message.System_Knock.new(curr, message.payload)] end}
     end
   end
 end

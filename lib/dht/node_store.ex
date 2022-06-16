@@ -17,8 +17,8 @@ defmodule Ekser.NodeStore do
         }
   def introduce_new() do
     nodes = Agent.get(Ekser.NodeStore, Ekser.NodeMap, :get_nodes, [])
-    {_, popped_nodes} = Map.pop!(nodes, :curr)
-    %{id: nodes.curr.id + 1, nodes: popped_nodes}
+    {curr, popped_nodes} = Map.pop!(nodes, :curr)
+    %{id: curr.id + 1, nodes: popped_nodes}
   end
 
   @spec enter_network(%Ekser.Node{}) :: :ok

@@ -27,6 +27,9 @@ defmodule Ekser.ListenerSup do
       auto_shutdown: :any_significant
     }
 
+    :ok =
+      Ekser.Router.bootstrap(fn curr, bootstrap -> Ekser.Message.Hail.new(curr, bootstrap) end)
+
     {:ok, {sup_flags, children(curr)}}
   end
 

@@ -27,6 +27,7 @@ defmodule Ekser.NodeMap do
     nodes
     |> Map.values()
     |> Enum.map(fn node -> node.job_name end)
+    |> Enum.filter(fn name -> name != "" end)
     |> Enum.uniq()
     |> length()
   end
@@ -44,15 +45,14 @@ defmodule Ekser.NodeMap do
           |> Map.values()
           |> Stream.filter(fn node -> node.job_name === nodes.curr.job_name end)
 
-        max = Enum.max_by(job_nodes, fn node -> String.length(node.fractal_id) end)
+        max =
+          Enum.max_by(job_nodes, fn node -> String.length(node.fractal_id) end).fractal_id
+          |> String.length()
 
         [top_id] =
           Stream.filter(job_nodes, fn node -> String.length(node.fractal_id) === max end)
-          |> Stream.map(fn node ->
-            {value, _} = Integer.parse(node.fractal_id, job.count)
-            value
-          end)
-          |> Enum.sort()
+          |> Stream.map(fn node -> node.fractal_id end)
+          |> Enum.sort_by(fn fractal_id -> String.to_integer(fractal_id, job.count) end)
           |> Enum.reverse()
           |> Enum.take(1)
 
@@ -85,7 +85,7 @@ defmodule Ekser.NodeMap do
       nodes[node.id] === node ->
         {:unchanged, nodes}
 
-      Ekser.Node.same_node?(nodes.curr, node) ->
+      Ekser.Node.same_node?(nodes[:curr], node) ->
         Ekser.Router.update_curr(node)
         {:ok, %{Map.put(nodes, node.id, node) | curr: node}}
 
@@ -100,12 +100,19 @@ defmodule Ekser.NodeMap do
 
   def set_system(nodes, id, system_nodes) do
     curr = %Ekser.Node{nodes.curr | id: id}
+    Ekser.Router.update_curr(curr)
 
     new_nodes =
       Map.merge(nodes, system_nodes)
       |> Map.put(curr.id, curr)
       |> Map.put(:curr, curr)
 
-    {{new_nodes[0], new_nodes[id - get_number_of_jobs(nodes)]}, new_nodes}
+    cluster_node =
+      case get_number_of_jobs(nodes) do
+        0 -> nil
+        number -> new_nodes[id - number]
+      end
+
+    {{new_nodes[0], cluster_node}, new_nodes}
   end
 end

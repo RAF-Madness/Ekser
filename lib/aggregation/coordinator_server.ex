@@ -19,19 +19,15 @@ defmodule Ekser.CoordinatorServer do
 
   @impl GenServer
   def handle_continue(:init, [:start, output, job]) do
-    arg =
-      case Ekser.JobStore.receive_job(job) do
-        :unchanged -> nil
-        :ok -> job
-      end
+    Ekser.JobStore.receive_job(job)
 
     {responses, local_info} =
       Ekser.NodeStore.get_nodes([])
       |> Ekser.Aggregate.init(
-        Ekser.Message.StopShareJob,
-        Ekser.Message.StoppedJobInfo,
+        Ekser.Message.Stop_Share_Job,
+        Ekser.Message.Stopped_Job_Info,
         fn -> Ekser.FractalServer.stop() end,
-        arg
+        job
       )
 
     Ekser.Aggregate.continue_or_exit(responses)
@@ -42,7 +38,7 @@ defmodule Ekser.CoordinatorServer do
         false -> Ekser.Result.get_friendly(local_info)
       end
 
-    try_complete(responses, initial_results, output)
+    try_complete(responses, Map.put(initial_results, job.name, []), output)
   end
 
   @impl GenServer
@@ -50,8 +46,8 @@ defmodule Ekser.CoordinatorServer do
     {responses, _} =
       Ekser.NodeStore.get_nodes([])
       |> Ekser.Aggregate.init(
-        Ekser.Message.StopShareJob,
-        Ekser.Message.StoppedJobInfo,
+        Ekser.Message.Stop_Share_Job,
+        Ekser.Message.Stopped_Job_Info,
         fn -> Ekser.FractalServer.stop() end,
         nil
       )
@@ -88,38 +84,79 @@ defmodule Ekser.CoordinatorServer do
   end
 
   defp complete(results, output) do
-    job_names = Map.keys(results)
+    individual_results =
+      results
+      |> Map.pop("")
+      |> elem(1)
+      |> Map.to_list()
+      |> Enum.map(fn {job_name, points} -> Ekser.Result.new(job_name, points) end)
+
+    all_nodes = Ekser.NodeStore.get_nodes([])
+
+    {curr, nodes_without_curr} = Map.pop(all_nodes, :curr)
 
     nodes =
-      Ekser.NodeStore.get_nodes([])
+      nodes_without_curr
       |> Map.values()
       |> Enum.sort_by(fn node -> node.id end)
 
-    {genesis_nodes, leftover_nodes} = Enum.split(nodes, length(job_names))
+    {genesis_nodes, leftover_nodes} = Enum.split(nodes, length(individual_results))
 
     genesis_node_stream = Stream.cycle(genesis_nodes)
 
-    zipped_genesis = Enum.zip(genesis_nodes, job_names)
-    zipped_leftover = Enum.zip(leftover_nodes, genesis_node_stream)
+    # 2 cases - curr in zipped genesis, curr in zipped leftover
+
+    zipped_genesis = Enum.zip(genesis_nodes, individual_results) |> remove_from_genesis(curr)
+
+    {zipped_leftover, message} =
+      Enum.zip(leftover_nodes, genesis_node_stream) |> remove_from_leftover(curr)
 
     # For DHT
     updated_zipped_genesis =
-      Enum.map(zipped_genesis, fn {node, job_name} ->
-        new_node = %Ekser.Node{node | job_name: job_name, fractal_id: "0"}
+      Enum.map(zipped_genesis, fn {node, result} ->
+        new_node = %Ekser.Node{node | job_name: result.job_name, fractal_id: "0"}
         Ekser.NodeStore.receive_node(new_node)
-        {new_node, job_name}
+        {new_node, result}
       end)
 
     fn curr ->
-      Enum.map(updated_zipped_genesis, fn {node, job_name} ->
-        Ekser.Message.StartJobGenesis.new(curr, node, job_name)
+      Enum.map(updated_zipped_genesis, fn {node, result} ->
+        Ekser.Message.Start_Job_Genesis.new(curr, node, result)
       end) ++
         Enum.map(zipped_leftover, fn {receiver, payload} ->
-          Ekser.Message.ApproachCluster.new(curr, receiver, payload)
-        end)
+          Ekser.Message.Approach_Cluster.new(curr, receiver, payload)
+        end) ++ message
     end
     |> Ekser.Router.send()
 
     IO.puts(output, "Reorganized clusters.")
+    exit(:shutdown)
+  end
+
+  defp remove_from_genesis(zipped_genesis, curr) do
+    case Enum.find(zipped_genesis, fn {node, _} -> node.id === curr.id end) do
+      nil ->
+        :ok
+
+      {_, result} ->
+        job = Ekser.JobStore.get_job_by_name(result.job_name)
+        Ekser.FractalServer.join_cluster(job, "0")
+        Ekser.FractalServer.start_job(result.points)
+    end
+
+    Enum.reject(zipped_genesis, fn {node, _} -> node.id === curr.id end)
+  end
+
+  defp remove_from_leftover(zipped_leftover, curr) do
+    message =
+      case Enum.find(zipped_leftover, fn {node, _} -> node.id === curr.id end) do
+        nil ->
+          []
+
+        {_, genesis} ->
+          [fn curr -> Ekser.Message.Cluster_Knock.new(curr, genesis) end]
+      end
+
+    {Enum.reject(zipped_leftover, fn {node, _} -> node.id === curr.id end), message}
   end
 end

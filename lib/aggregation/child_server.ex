@@ -18,7 +18,7 @@ defmodule Ekser.ChildServer do
 
   @impl GenServer
   def handle_continue(:init, [job, fractal_id]) do
-    Registry.register(Registry.AggregateRegistry, {Ekser.Message.EnteredCluster, job.name}, nil)
+    Registry.register(Registry.AggregateRegistry, {Ekser.Message.Entered_Cluster, job.name}, nil)
 
     next_id =
       case fractal_id do

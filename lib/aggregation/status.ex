@@ -5,6 +5,7 @@ defmodule Ekser.Status do
 
   @impl Ekser.Serializable
   def create_from_json(json) when is_map(json) do
+    IO.inspect(json)
     job_name = json["jobName"]
 
     [fractal_id] =
@@ -21,11 +22,12 @@ defmodule Ekser.Status do
     Map.merge(map, get_friendly(status), fn _, nodes1, nodes2 ->
       Map.merge(nodes1, nodes2)
     end)
+    |> Map.drop([""])
   end
 
   def get_status_string(map) do
     {all_string, all_sum} =
-      Enum.reduce(Map.to_list(map), [], fn {job_name, job_map}, {acc_string, acc_sum} ->
+      Enum.reduce(Map.to_list(map), {[], 0}, fn {job_name, job_map}, {acc_string, acc_sum} ->
         {job_string, job_sum} = get_job_string(job_map)
 
         appended_job_acc_string = [job_string | acc_string]
@@ -41,7 +43,7 @@ defmodule Ekser.Status do
   end
 
   defp get_job_string(map) do
-    Enum.reduce(Map.to_list(map), [], fn {fractal_id, points}, {acc_string, acc_sum} ->
+    Enum.reduce(Map.to_list(map), {[], 0}, fn {fractal_id, points}, {acc_string, acc_sum} ->
       {["Node with fractal ID ", fractal_id, " calculated #{points} points.\n" | acc_string],
        acc_sum + points}
     end)
@@ -54,7 +56,7 @@ defmodule Ekser.Status do
   def new(job_name, fractal_id, points_calculated) do
     with {true, _} <- {is_binary(job_name), "Invalid job name."},
          {true, _} <- {Ekser.FractalId.valid_fractal_id?(fractal_id), "Invalid fractal id."},
-         {true, _} <- {Ekser.Point.valid_points?(points_calculated), "Invalid list of points."} do
+         {true, _} <- {is_integer(points_calculated), "Invalid number of points calculated."} do
       %__MODULE__{
         job_name: job_name,
         fractal_id: fractal_id,

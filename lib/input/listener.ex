@@ -24,9 +24,6 @@ defmodule Ekser.Listener do
   def run(curr) do
     {:ok, socket} = :gen_tcp.listen(curr.port, Ekser.TCP.socket_options())
 
-    :ok =
-      Ekser.Router.bootstrap(fn curr, bootstrap -> Ekser.Message.Hail.new(curr, bootstrap) end)
-
     listen(socket, curr)
   end
 
@@ -49,8 +46,6 @@ defmodule Ekser.Listener do
     bytes =
       socket
       |> read()
-
-    :ok = :gen_tcp.close(socket)
 
     with {:ok, json} <- Jason.decode(bytes),
          message when not is_tuple(message) <- Ekser.Message.create_from_json(json) do
@@ -83,6 +78,10 @@ defmodule Ekser.Listener do
 
       {:send, closure} ->
         Ekser.Router.send(closure)
+
+      {{:send, closure}, {:bootstrap, bootstrap_closure}} ->
+        Ekser.Router.send(closure)
+        Ekser.Router.bootstrap(bootstrap_closure)
     end
   end
 end

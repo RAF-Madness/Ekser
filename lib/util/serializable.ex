@@ -7,12 +7,7 @@ defmodule Ekser.Serializable do
 
   @spec to_struct_map(map() | list(), atom(), (struct() -> tuple())) :: map() | :error
   def to_struct_map(map, module, kv) when is_map(map) do
-    stream = Stream.map(Map.values(map), fn element -> module.create_from_json(element) end)
-
-    case Enum.find(stream, fn element -> is_struct(element, module) end) do
-      nil -> Enum.into(stream, %{}, fn element -> kv.(element) end)
-      _ -> :error
-    end
+    to_struct_map(Map.values(map), module, kv)
   end
 
   def to_struct_map(list, module, kv) do

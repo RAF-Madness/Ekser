@@ -1,4 +1,4 @@
-defmodule Ekser.Message.UpdatedNode do
+defmodule Ekser.Message.Updated_Node do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -19,7 +19,7 @@ defmodule Ekser.Message.UpdatedNode do
   end
 end
 
-defmodule Ekser.Message.EnteredCluster do
+defmodule Ekser.Message.Entered_Cluster do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -40,7 +40,7 @@ defmodule Ekser.Message.EnteredCluster do
   end
 end
 
-defmodule Ekser.Message.ClusterConnectionResponse do
+defmodule Ekser.Message.Cluster_Connection_Response do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -58,7 +58,7 @@ defmodule Ekser.Message.ClusterConnectionResponse do
   end
 end
 
-defmodule Ekser.Message.ClusterConnectionRequest do
+defmodule Ekser.Message.Cluster_Connection_Request do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -73,41 +73,42 @@ defmodule Ekser.Message.ClusterConnectionRequest do
   @impl Ekser.Message
   def send_effect(message) do
     Ekser.Router.add_cluster_neighbour(message.sender)
-    {:send, fn curr -> [Ekser.Message.ClusterConnectionResponse.new(curr, message.sender)] end}
+    {:send, fn curr -> [Ekser.Message.Cluster_Connection_Response.new(curr, message.sender)] end}
   end
 end
 
-defmodule Ekser.Message.ClusterWelcome do
+defmodule Ekser.Message.Cluster_Welcome do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
   def parse_payload(payload) do
-    case Ekser.FractalId.valid_fractal_id?(payload.fractal_id) and is_binary(payload.job_name) do
-      true ->
-        payload
-
-      false ->
-        :error
+    with fractal_id when fractal_id != nil <- payload["fractal_id"],
+         job_name when job_name != nil <- payload["job_name"],
+         true <- Ekser.FractalId.valid_fractal_id?(fractal_id),
+         true <- is_binary(job_name) do
+      payload
+    else
+      _ -> :error
     end
   end
 
   def new(curr, receiver, {job_name, fractal_id}) do
     Ekser.Message.new(__MODULE__, curr, receiver, [], %{
-      job_name: job_name,
-      fractal_id: fractal_id
+      "job_name" => job_name,
+      "fractal_id" => fractal_id
     })
   end
 
   @impl Ekser.Message
   def send_effect(message) do
-    Ekser.ClusterServer.child_spec([message.payload.job_name, message.payload.fractal_id])
+    Ekser.ClusterServer.child_spec([message.payload["job_name"], message.payload["fractal_id"]])
     |> Ekser.Aggregate.new()
 
     :ok
   end
 end
 
-defmodule Ekser.Message.ClusterKnock do
+defmodule Ekser.Message.Cluster_Knock do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -126,14 +127,15 @@ defmodule Ekser.Message.ClusterKnock do
         :ok
 
       fractal_id ->
-        fn curr ->
-          Ekser.Message.ClusterWelcome.new(curr, message.sender, {curr.job_name, fractal_id})
-        end
+        {:send,
+         fn curr ->
+           [Ekser.Message.Cluster_Welcome.new(curr, message.sender, {curr.job_name, fractal_id})]
+         end}
     end
   end
 end
 
-defmodule Ekser.Message.ApproachCluster do
+defmodule Ekser.Message.Approach_Cluster do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -151,11 +153,11 @@ defmodule Ekser.Message.ApproachCluster do
   @impl Ekser.Message
   def send_effect(message) do
     Ekser.Router.wipe_cluster_neighbours()
-    {:send, fn curr -> Ekser.Message.ClusterKnock.new(curr, message.payload) end}
+    {:send, fn curr -> [Ekser.Message.Cluster_Knock.new(curr, message.payload)] end}
   end
 end
 
-defmodule Ekser.Message.StartJobGenesis do
+defmodule Ekser.Message.Start_Job_Genesis do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -175,14 +177,20 @@ defmodule Ekser.Message.StartJobGenesis do
     job = Ekser.JobStore.get_job_by_name(message.payload.job_name)
     Ekser.FractalServer.join_cluster(job, "0")
     Ekser.FractalServer.start_job(message.payload.points)
-    # Ekser.NodeStore.update_cluster(job.name, "0")
 
-    receivers = Ekser.NodeStore.get_nodes([])
+    all_nodes = Ekser.NodeStore.get_nodes([])
+    {curr, nodes_without_curr} = Map.pop(all_nodes, :curr)
+
+    receivers =
+      nodes_without_curr
+      |> Map.pop(curr.id)
+      |> elem(1)
+      |> Map.values()
 
     {:send,
      fn curr ->
        Enum.map(receivers, fn receiver ->
-         Ekser.Message.EnteredCluster.new(curr, receiver, curr)
+         Ekser.Message.Entered_Cluster.new(curr, receiver, curr)
        end)
      end}
   end
