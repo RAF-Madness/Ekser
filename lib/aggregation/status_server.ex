@@ -46,7 +46,7 @@ defmodule Ekser.StatusServer do
   end
 
   @impl GenServer
-  def handle_call(:stop, _from, state) do
+  def handle_call(:stop, _from, _) do
     exit(:shutdown)
   end
 

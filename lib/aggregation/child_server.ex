@@ -23,14 +23,14 @@ defmodule Ekser.ChildServer do
     next_id =
       case fractal_id do
         "0" -> "0"
-        _ -> fractal_id + "0"
+        _ -> fractal_id <> "0"
       end
 
     {:noreply, {[], job.count, fractal_id, next_id}}
   end
 
   @impl GenServer
-  def handle_call({:response, id, payload}, _from, {responses, count, fractal_id, next_id}) do
+  def handle_call({:response, _, payload}, _from, {responses, count, fractal_id, next_id}) do
     new_responses =
       case Ekser.FractalId.is_child?(fractal_id, payload.fractal_id) do
         true -> [payload | responses]
@@ -40,7 +40,7 @@ defmodule Ekser.ChildServer do
     case length(new_responses) === count - 1 do
       true ->
         Ekser.FractalServer.redistribute(responses, next_id)
-        {:noreply, {[], count, next_id, next_id + "0"}}
+        {:noreply, {[], count, next_id, next_id <> "0"}}
 
       false ->
         {:noreply, {responses, count, fractal_id, next_id}}
@@ -48,7 +48,7 @@ defmodule Ekser.ChildServer do
   end
 
   @impl GenServer
-  def handle_call(:stop, _from, state) do
+  def handle_call(:stop, _from, _) do
     exit(:shutdown)
   end
 end

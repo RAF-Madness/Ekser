@@ -7,7 +7,7 @@ defmodule Ekser.FractalCruncher do
 
   def run(ratio, anchor_points, last_point) do
     next_point = Ekser.Point.next_point(ratio, anchor_points, last_point)
-    Ekser.FractalServ.receive_point(next_point)
+    Ekser.FractalServer.receive_point(next_point)
     run(ratio, anchor_points, next_point)
   end
 end

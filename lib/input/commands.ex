@@ -23,19 +23,22 @@ defmodule Ekser.Command.Status do
 
   defp status([job, id], output) do
     Ekser.StatusServer.child_spec([output, job.name, id])
-    Ekser.Aggregate.new()
+    |> Ekser.Aggregate.new()
+
     "Attempting to collect status for job #{job.name} and fractal ID #{id}"
   end
 
   defp status([job], output) do
     Ekser.StatusServer.child_spec([output, job.name])
-    Ekser.Aggregate.new()
+    |> Ekser.Aggregate.new()
+
     "Attempting to collect status for job #{job.name}"
   end
 
   defp status([], output) do
     Ekser.StatusServer.child_spec([output])
-    Ekser.Aggregate.new()
+    |> Ekser.Aggregate.new()
+
     "Attempting to collect status for all jobs"
   end
 end
@@ -119,13 +122,15 @@ defmodule Ekser.Command.Result do
 
   defp result([job, id], output) do
     Ekser.ResultServer.child_spec([output, job, id])
-    Ekser.Aggregate.new()
+    |> Ekser.Aggregate.new()
+
     "Attempting to generate fractal image for job #{job.name} and fractal ID #{id}"
   end
 
   defp result([job], output) do
     Ekser.ResultServer.child_spec([output, job])
-    Ekser.Aggregate.new()
+    |> Ekser.Aggregate.new()
+
     "Attempting to generate fractal image for job #{job.name}"
   end
 end
@@ -147,7 +152,7 @@ defmodule Ekser.Command.Stop do
     )
   end
 
-  defp stop([job], _) do
+  defp stop([job], output) do
     Ekser.CoordinatorServer.child_spec([:stop, output, job.name])
     |> Ekser.Aggregate.new()
 

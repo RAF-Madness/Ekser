@@ -47,7 +47,7 @@ defmodule Ekser.ResultServer do
   end
 
   @impl GenServer
-  def handle_call(:stop, _from, state) do
+  def handle_call(:stop, _from, _) do
     exit(:shutdown)
   end
 
@@ -89,7 +89,7 @@ defmodule Ekser.ResultServer do
 
     :png.close(png)
     File.close(file)
-    IO.puts(output, [name, ".png is now available."])
+    IO.puts(output, "result.png is now available.")
     exit(:shutdown)
   end
 

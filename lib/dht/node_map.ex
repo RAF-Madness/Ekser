@@ -7,7 +7,8 @@ defmodule Ekser.NodeMap do
 
   def update_curr_fractal(nodes, job_name, fractal_id) do
     new_curr = %Ekser.Node{nodes.curr | job_name: job_name, fractal_id: fractal_id}
-    update_node(nodes, new_curr)
+    Ekser.Router.update_curr(new_curr)
+    %{Map.put(nodes, new_curr.id, new_curr) | curr: new_curr}
   end
 
   def get_cluster_neighbours(nodes, job_name, fractal_id) do
@@ -15,8 +16,7 @@ defmodule Ekser.NodeMap do
 
     neighbours =
       new_nodes
-      |> Map.values()
-      |> Enum.filter(fn node ->
+      |> Map.filter(fn {_, node} ->
         Ekser.FractalId.compare_edit_distance(new_nodes.curr.fractal_id, node.fractal_id, 1) === 1
       end)
 
@@ -39,15 +39,15 @@ defmodule Ekser.NodeMap do
         :error
 
       _ ->
-        filtered_nodes =
+        job_nodes =
           nodes
           |> Map.values()
           |> Stream.filter(fn node -> node.job_name === nodes.curr.job_name end)
 
-        max = Enum.max_by(filtered_nodes, fn node -> String.length(node.fractal_id) end)
+        max = Enum.max_by(job_nodes, fn node -> String.length(node.fractal_id) end)
 
         [top_id] =
-          Stream.filter(fn node -> String.length(node.fractal_id) === max end)
+          Stream.filter(job_nodes, fn node -> String.length(node.fractal_id) === max end)
           |> Stream.map(fn node ->
             {value, _} = Integer.parse(node.fractal_id, job.count)
             value

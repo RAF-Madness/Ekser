@@ -7,13 +7,18 @@ defmodule Ekser.Status do
   def create_from_json(json) when is_map(json) do
     job_name = json["jobName"]
 
-    points_per_node = json["pointsPerNode"]
+    [fractal_id] =
+      json["pointsPerNode"]
+      |> Map.keys()
+      |> Enum.take(1)
 
-    new(job_name, points_per_node)
+    points_calculated = json["pointsPerNode"][fractal_id]
+
+    new(job_name, fractal_id, points_calculated)
   end
 
   def merge_status(map, status) do
-    Map.merge(map, get_friendly(status), fn job_name, nodes1, nodes2 ->
+    Map.merge(map, get_friendly(status), fn _, nodes1, nodes2 ->
       Map.merge(nodes1, nodes2)
     end)
   end
@@ -43,20 +48,18 @@ defmodule Ekser.Status do
   end
 
   def get_friendly(status) do
-    %{status.job_name => %{status.fractal_id => status.count}}
+    %{status.job_name => %{status.fractal_id => status.points_calculated}}
   end
 
-  def new(job_name, fractal_id, count) do
-    %__MODULE__{job_name: job_name, fractal_id: fractal_id, count: count}
-  end
-
-  def new(job_name, points_per_node) do
+  def new(job_name, fractal_id, points_calculated) do
     with {true, _} <- {is_binary(job_name), "Invalid job name."},
-         {true, _} <-
-           {is_map(points_per_node) and
-              Enum.all?(Map.values(points_per_node), fn value -> is_integer(value) end),
-            "Invalid map of calculated points."} do
-      %__MODULE__{job_name: job_name}
+         {true, _} <- {Ekser.FractalId.valid_fractal_id?(fractal_id), "Invalid fractal id."},
+         {true, _} <- {Ekser.Point.valid_points?(points_calculated), "Invalid list of points."} do
+      %__MODULE__{
+        job_name: job_name,
+        fractal_id: fractal_id,
+        points_calculated: points_calculated
+      }
     else
       {false, message} -> {:error, message}
     end
@@ -65,11 +68,10 @@ end
 
 defimpl Jason.Encoder, for: Ekser.Status do
   def encode(value, opts) do
-    [job_name] =
-      Map.keys(value)
-      |> Enum.take(1)
-
-    map = %{job_name => Map.get(value, job_name)}
+    map = %{
+      "jobName" => value.job_name,
+      "pointsPerNode" => %{value.fractal_id => value.points_calculated}
+    }
 
     Jason.Encode.map(map, opts)
   end

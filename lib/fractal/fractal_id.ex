@@ -3,14 +3,14 @@ defmodule Ekser.FractalId do
     {base_rep, _} = Integer.parse(fractal_id, point_count)
     new_base_rep = base_rep + 1
 
-    new_string = String.to_integer(new_base_rep, point_count)
+    new_string = Integer.to_string(new_base_rep, point_count)
 
     # If the last digit is 0 (cascading), add 1
     [last_digit | _] = new_string |> String.graphemes() |> Enum.reverse()
 
     newer_string =
       case last_digit === "0" do
-        true -> String.to_integer(new_base_rep + 1, point_count)
+        true -> Integer.to_string(new_base_rep + 1, point_count)
         false -> new_string
       end
 

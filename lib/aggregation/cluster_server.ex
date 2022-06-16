@@ -32,13 +32,13 @@ defmodule Ekser.ClusterServer do
   end
 
   @impl GenServer
-  def handle_call({:response, id, payload}, _from, responses) do
+  def handle_call({:response, id, _}, _from, responses) do
     new_responses = %{responses | id => true}
     try_complete(new_responses)
   end
 
   @impl GenServer
-  def handle_call(:stop, _from, state) do
+  def handle_call(:stop, _from, _) do
     exit(:shutdown)
   end
 
@@ -54,7 +54,9 @@ defmodule Ekser.ClusterServer do
       Ekser.NodeStore.get_nodes([])
       |> Map.values()
 
-    fn curr -> Enum.map(nodes, fn node -> Ekser.Message.EnteredCluster.new(curr, node) end) end
+    fn curr ->
+      Enum.map(nodes, fn node -> Ekser.Message.EnteredCluster.new(curr, node, curr) end)
+    end
     |> Ekser.Router.send()
 
     exit(:shutdown)

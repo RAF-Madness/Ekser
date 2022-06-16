@@ -8,7 +8,6 @@ defmodule Ekser.Message do
               | :exit
               | {:bootstrap, function()}
               | {:send, function()}
-  @optional_callbacks new: 1, new: 2
 
   @enforce_keys [:type, :sender, :receiver, :routes, :payload]
   defstruct @enforce_keys

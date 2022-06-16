@@ -23,7 +23,10 @@ defmodule Ekser.Listener do
 
   def run(curr) do
     {:ok, socket} = :gen_tcp.listen(curr.port, Ekser.TCP.socket_options())
-    # :ok = Ekser.Router.bootstrap(Ekser.Message.Hail.new(0))
+
+    :ok =
+      Ekser.Router.bootstrap(fn curr, bootstrap -> Ekser.Message.Hail.new(curr, bootstrap) end)
+
     listen(socket, curr)
   end
 

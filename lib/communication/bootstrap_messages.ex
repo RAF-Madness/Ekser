@@ -6,7 +6,6 @@ defmodule Ekser.Message.Leave do
     nil
   end
 
-  @impl Ekser.Message
   def new(curr, bootstrap) do
     Ekser.Message.new(__MODULE__, curr, bootstrap, [], nil)
   end
@@ -21,12 +20,15 @@ defmodule Ekser.Message.Join do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
-  def parse_payload(_) do
-    nil
+  def parse_payload(payload) do
+    case is_struct(payload, Ekser.Node) do
+      true -> payload
+      false -> Ekser.Node.create_from_json(payload)
+    end
   end
 
-  def new(curr, bootstrap) do
-    Ekser.Message.new(__MODULE__, curr, bootstrap, [], nil)
+  def new(curr, bootstrap, node) do
+    Ekser.Message.new(__MODULE__, curr, bootstrap, [], node)
   end
 
   @impl Ekser.Message
@@ -43,7 +45,6 @@ defmodule Ekser.Message.Reject do
     nil
   end
 
-  @impl Ekser.Message
   def new(curr, receiver) do
     Ekser.Message.new(__MODULE__, curr, receiver, [], nil)
   end
@@ -75,7 +76,7 @@ defmodule Ekser.Message.Contact do
       true ->
         curr = %Ekser.Node{message.receiver | id: 0}
         :ok = Ekser.NodeStore.receive_node(curr)
-        {:bootstrap, fn curr, bootstrap -> Ekser.Message.Join.new(curr, bootstrap) end}
+        {:bootstrap, fn curr, bootstrap -> Ekser.Message.Join.new(curr, bootstrap, curr) end}
 
       false ->
         {:send, fn curr -> [Ekser.Message.SystemKnock.new(curr, message.payload)] end}
@@ -101,6 +102,7 @@ defmodule Ekser.Message.Hail do
      fn curr ->
        [
          Ekser.Message.Contact.new(
+           curr,
            message.sender,
            Ekser.Node.new(-1, message.sender.ip, message.sender.port, "", "")
          )

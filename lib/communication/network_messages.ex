@@ -73,6 +73,7 @@ defmodule Ekser.Message.ConnectionRequest do
 end
 
 defmodule Ekser.Message.Welcome do
+  require Logger
   @behaviour Ekser.Message
 
   @impl Ekser.Message
@@ -95,7 +96,8 @@ defmodule Ekser.Message.Welcome do
     {first_node, cluster_node} = Ekser.NodeStore.receive_system(message.payload)
 
     case cluster_node do
-      nil ->
+      test when not is_struct(cluster_node, Ekser.Node) ->
+        Logger.error(test)
         {:send, fn curr -> [Ekser.Message.ConnectionRequest.new(curr, first_node)] end}
 
       _ ->

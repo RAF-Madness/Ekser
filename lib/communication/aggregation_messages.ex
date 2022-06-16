@@ -44,7 +44,7 @@ defmodule Ekser.Message.StatusRequest do
   @behaviour Ekser.Message
 
   @impl Ekser.Message
-  def parse_payload(payload) do
+  def parse_payload(_) do
     nil
   end
 
@@ -130,7 +130,7 @@ defmodule Ekser.Message.StopShareJob do
 
   @impl Ekser.Message
   def parse_payload(payload) do
-    case is_struct(job, Ekser.Job) do
+    case is_struct(payload, Ekser.Job) do
       true -> payload
       false -> Ekser.Job.create_from_json(payload)
     end
@@ -144,7 +144,7 @@ defmodule Ekser.Message.StopShareJob do
   def send_effect(message) do
     case message.payload do
       nil -> :ok
-      job -> Ekser.JobStore.receive_job(message.payload)
+      _ -> Ekser.JobStore.receive_job(message.payload)
     end
 
     work_done = Ekser.FractalServer.stop()

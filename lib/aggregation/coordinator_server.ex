@@ -46,7 +46,7 @@ defmodule Ekser.CoordinatorServer do
   end
 
   @impl GenServer
-  def handle_continue(:init, [:stop, output, job]) do
+  def handle_continue(:init, [:stop, output, _]) do
     {responses, _} =
       Ekser.NodeStore.get_nodes([])
       |> Ekser.Aggregate.init(
@@ -58,7 +58,7 @@ defmodule Ekser.CoordinatorServer do
 
     Ekser.Aggregate.continue_or_exit(responses)
 
-    try_complete(responses, %{}, output, job.name)
+    try_complete(responses, %{}, output)
   end
 
   @impl GenServer
@@ -76,7 +76,7 @@ defmodule Ekser.CoordinatorServer do
         false -> Ekser.Result.merge_result(results, payload)
       end
 
-    new_results = new_responses = %{responses | id => true}
+    new_responses = %{responses | id => true}
     try_complete(new_responses, new_results, output)
   end
 
@@ -111,8 +111,8 @@ defmodule Ekser.CoordinatorServer do
       end)
 
     fn curr ->
-      Enum.map(updated_genesis_nodes, fn {receiver, payload} ->
-        Ekser.Message.ShareJobGenesis.new(curr, node, job_name)
+      Enum.map(updated_zipped_genesis, fn {node, job_name} ->
+        Ekser.Message.StartJobGenesis.new(curr, node, job_name)
       end) ++
         Enum.map(zipped_leftover, fn {receiver, payload} ->
           Ekser.Message.ApproachCluster.new(curr, receiver, payload)
@@ -120,6 +120,6 @@ defmodule Ekser.CoordinatorServer do
     end
     |> Ekser.Router.send()
 
-    IO.puts("Reorganized clusters.")
+    IO.puts(output, "Reorganized clusters.")
   end
 end

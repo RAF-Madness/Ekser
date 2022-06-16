@@ -19,7 +19,7 @@ defmodule Ekser.Aggregate do
           nodes
 
         node ->
-          {_, new_map} = Map.pop!(nodes_without_curr, node.id)
+          {_, new_map} = Map.pop(nodes_without_curr, node.id)
           new_map
       end
 

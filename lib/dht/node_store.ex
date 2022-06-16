@@ -37,7 +37,7 @@ defmodule Ekser.NodeStore do
   end
 
   @spec receive_system(%Ekser.DHT{}) ::
-          %Ekser.Node{} | {:error, String.t()}
+          {%Ekser.Node{}, %Ekser.Node{}} | {%Ekser.Node{}, nil}
   def receive_system(dht) do
     Agent.get_and_update(__MODULE__, Ekser.NodeMap, :set_system, [dht.id, dht.nodes])
   end
@@ -47,7 +47,7 @@ defmodule Ekser.NodeStore do
     Agent.get(__MODULE__, Ekser.NodeMap, :get_nodes, arg_list)
   end
 
-  @spec get_cluster_neighbours(String.t(), String.t()) :: list(%Ekser.Node{})
+  @spec get_cluster_neighbours(String.t(), String.t()) :: %{pos_integer() => %Ekser.Node{}}
   def get_cluster_neighbours(job_name, fractal_id) do
     Agent.get_and_update(__MODULE__, Ekser.NodeMap, :get_cluster_neighbours, [
       job_name,
@@ -56,7 +56,7 @@ defmodule Ekser.NodeStore do
   end
 
   def update_cluster(job_name, fractal_id) do
-    Agent.get(__MODULE__, Ekser.NodeMap, :update_curr_fractal, [job_name, fractal_id])
+    Agent.update(__MODULE__, Ekser.NodeMap, :update_curr_fractal, [job_name, fractal_id])
   end
 
   @spec get_next_fractal_id() :: String.t() | :error

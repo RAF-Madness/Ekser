@@ -18,7 +18,7 @@ defmodule Ekser.Supervisor do
     )
 
     sup_flags = %{
-      strategy: :rest_for_all,
+      strategy: :rest_for_one,
       intensity: 0,
       period: 5,
       auto_shutdown: :any_significant

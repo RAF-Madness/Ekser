@@ -34,10 +34,6 @@ end
 
 defimpl Jason.Encoder, for: Ekser.Result do
   def encode(value, opts) do
-    [job_name] =
-      Map.keys(value)
-      |> Enum.take(1)
-
     map = %{"jobName" => value.job_name, "points" => Ekser.Point.to_json(value.points)}
 
     Jason.Encode.map(map, opts)
