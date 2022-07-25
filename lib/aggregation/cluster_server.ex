@@ -28,28 +28,16 @@ defmodule Ekser.ClusterServer do
 
     Ekser.Aggregate.continue_or_exit(responses)
 
-    try_complete(responses)
-  end
+    Ekser.Aggregate.register_non_vital()
 
-  @impl GenServer
-  def handle_call({:response, id, _}, _from, responses) do
-    new_responses = %{responses | id => true}
-    try_complete(new_responses)
-  end
-
-  @impl GenServer
-  def handle_call(:stop, _from, _) do
-    exit(:shutdown)
-  end
-
-  defp try_complete(responses) do
     case Ekser.Aggregate.is_complete?(responses) do
-      true -> complete()
+      true -> {:noreply, nil, {:continue, :complete}}
       false -> {:noreply, responses}
     end
   end
 
-  defp complete() do
+  @impl GenServer
+  def handle_continue(:complete, _) do
     all_nodes = Ekser.NodeStore.get_nodes([])
 
     {curr, nodes_without_curr} = Map.pop(all_nodes, :curr)
@@ -66,5 +54,23 @@ defmodule Ekser.ClusterServer do
     |> Ekser.Router.send()
 
     exit(:shutdown)
+  end
+
+  @impl GenServer
+  def handle_call({:response, id, _}, _from, responses) do
+    new_responses = %{responses | id => true}
+    try_complete(new_responses)
+  end
+
+  @impl GenServer
+  def handle_call(:stop, _from, _) do
+    exit(:shutdown)
+  end
+
+  defp try_complete(responses) do
+    case Ekser.Aggregate.is_complete?(responses) do
+      true -> {:reply, :ok, nil, {:continue, :complete}}
+      false -> {:reply, :ok, responses}
+    end
   end
 end

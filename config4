@@ -1,5 +1,5 @@
 {
-    "port": 1400,
+    "port": 1500,
     "bootstrapIpAddress": "192.168.0.29",
     "bootstrapPort": 2000,
     "weakLimit": 500,

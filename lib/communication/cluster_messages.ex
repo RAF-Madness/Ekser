@@ -16,6 +16,7 @@ defmodule Ekser.Message.Updated_Node do
   @impl Ekser.Message
   def send_effect(message) do
     Ekser.NodeStore.receive_node(message.payload)
+    :ok
   end
 end
 
@@ -37,6 +38,8 @@ defmodule Ekser.Message.Entered_Cluster do
   @impl Ekser.Message
   def send_effect(message) do
     Ekser.NodeStore.receive_node(message.payload)
+    Ekser.Aggregate.respond_job(message)
+    :ok
   end
 end
 
@@ -54,6 +57,7 @@ defmodule Ekser.Message.Cluster_Connection_Response do
 
   @impl Ekser.Message
   def send_effect(message) do
+    Ekser.Router.add_cluster_neighbour(message.sender)
     Ekser.Aggregate.respond(message)
   end
 end
@@ -66,7 +70,7 @@ defmodule Ekser.Message.Cluster_Connection_Request do
     nil
   end
 
-  def new(curr, receiver) do
+  def new(curr, receiver, _) do
     Ekser.Message.new(__MODULE__, curr, receiver, [], nil)
   end
 
@@ -101,6 +105,9 @@ defmodule Ekser.Message.Cluster_Welcome do
 
   @impl Ekser.Message
   def send_effect(message) do
+    job = Ekser.JobStore.get_job_by_name(message.payload["job_name"])
+    Ekser.FractalServer.join_cluster(job, message.payload["fractal_id"])
+
     Ekser.ClusterServer.child_spec([message.payload["job_name"], message.payload["fractal_id"]])
     |> Ekser.Aggregate.new()
 
@@ -122,7 +129,7 @@ defmodule Ekser.Message.Cluster_Knock do
 
   @impl Ekser.Message
   def send_effect(message) do
-    case Ekser.NodeStore.get_next_fractal_id() do
+    case Ekser.NodeStore.get_next_fractal_id(message.sender) do
       :error ->
         :ok
 
@@ -175,6 +182,7 @@ defmodule Ekser.Message.Start_Job_Genesis do
   @impl Ekser.Message
   def send_effect(message) do
     job = Ekser.JobStore.get_job_by_name(message.payload.job_name)
+    Ekser.Router.wipe_cluster_neighbours()
     Ekser.FractalServer.join_cluster(job, "0")
     Ekser.FractalServer.start_job(message.payload.points)
 

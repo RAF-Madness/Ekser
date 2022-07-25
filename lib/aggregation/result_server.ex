@@ -30,35 +30,22 @@ defmodule Ekser.ResultServer do
 
     Ekser.Aggregate.continue_or_exit(responses)
 
+    Ekser.Aggregate.register_non_vital()
+
     initial_results =
       case local_info === nil do
         true -> []
         false -> local_info.points
       end
 
-    try_complete(responses, initial_results, output, job.resolution)
-  end
-
-  @impl GenServer
-  def handle_call({:response, id, payload}, _from, {responses, results, output, resolution}) do
-    new_results = results ++ payload.points
-    new_responses = %{responses | id => true}
-    try_complete(new_responses, new_results, output, resolution)
-  end
-
-  @impl GenServer
-  def handle_call(:stop, _from, _) do
-    exit(:shutdown)
-  end
-
-  defp try_complete(responses, results, output, resolution) do
     case Ekser.Aggregate.is_complete?(responses) do
-      true -> complete(results, output, resolution)
-      false -> {:noreply, {responses, results, output, resolution}}
+      true -> {:noreply, {initial_results, output, job.resolution}, {:continue, :complete}}
+      false -> {:noreply, {responses, initial_results, output, job.resolution}}
     end
   end
 
-  defp complete(results, output, resolution) do
+  @impl GenServer
+  def handle_continue(:complete, {results, output, resolution}) do
     file =
       "result.png"
       |> Path.expand()
@@ -89,6 +76,25 @@ defmodule Ekser.ResultServer do
     File.close(file)
     IO.puts(output, "result.png is now available.")
     exit(:shutdown)
+  end
+
+  @impl GenServer
+  def handle_call({:response, id, payload}, _from, {responses, results, output, resolution}) do
+    new_results = results ++ payload.points
+    new_responses = %{responses | id => true}
+    try_complete(new_responses, new_results, output, resolution)
+  end
+
+  @impl GenServer
+  def handle_call(:stop, _from, _) do
+    exit(:shutdown)
+  end
+
+  defp try_complete(responses, results, output, resolution) do
+    case Ekser.Aggregate.is_complete?(responses) do
+      true -> {:reply, :ok, {results, output, resolution}, {:continue, :complete}}
+      false -> {:reply, :ok, {responses, results, output, resolution}}
+    end
   end
 
   defp check_rows(list, acc, png, width) do

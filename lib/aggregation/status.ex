@@ -5,7 +5,6 @@ defmodule Ekser.Status do
 
   @impl Ekser.Serializable
   def create_from_json(json) when is_map(json) do
-    IO.inspect(json)
     job_name = json["jobName"]
 
     [fractal_id] =

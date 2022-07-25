@@ -48,7 +48,7 @@ defmodule Ekser.FractalServer do
 
   @impl GenServer
   def init(:ok) do
-    {:ok, %__MODULE__{}}
+    {:ok, %__MODULE__{count: 0}}
   end
 
   @impl GenServer
@@ -57,11 +57,35 @@ defmodule Ekser.FractalServer do
 
     new_state = %__MODULE__{state | job: job, fractal_id: fractal_id, anchors: job.points}
 
+    Ekser.ChildServer.child_spec([job, fractal_id])
+    |> Ekser.Aggregate.new()
+
     scaled_state =
-      case new_state.job != nil and new_state.points != nil do
-        true -> set_up(new_state)
-        false -> new_state
+      cond do
+        new_state.fractal_id != "0" and new_state.points != nil ->
+          scale_state(new_state) |> set_up_cruncher()
+
+        new_state.points != nil ->
+          set_up_cruncher(new_state)
+
+        true ->
+          new_state
       end
+
+    all_nodes = Ekser.NodeStore.get_nodes([])
+    {curr, nodes_without_curr} = Map.pop(all_nodes, :curr)
+
+    receivers =
+      Map.pop(nodes_without_curr, curr.id)
+      |> elem(1)
+      |> Map.values()
+
+    fn curr ->
+      Enum.map(receivers, fn receiver ->
+        Ekser.Message.Entered_Cluster.new(curr, receiver, curr)
+      end)
+    end
+    |> Ekser.Router.send()
 
     {:reply, :ok, scaled_state}
   end
@@ -73,12 +97,18 @@ defmodule Ekser.FractalServer do
 
   @impl GenServer
   def handle_call({:start, points}, _from, state) when state.points === nil do
-    new_state = %__MODULE__{state | points: points}
+    new_state = %__MODULE__{state | points: Enum.reverse(points)}
 
     scaled_state =
-      case new_state.job != nil and new_state.points != nil do
-        true -> set_up(new_state)
-        false -> new_state
+      cond do
+        new_state.fractal_id != "0" and new_state.job != nil ->
+          scale_state(new_state) |> set_up_cruncher()
+
+        new_state.job != nil ->
+          set_up_cruncher(new_state)
+
+        true ->
+          new_state
       end
 
     {:reply, :ok, scaled_state}
@@ -91,8 +121,13 @@ defmodule Ekser.FractalServer do
 
   @impl GenServer
   def handle_call({:redistribute, nodes, new_id}, _from, state) do
-    # This call has to update DHT/Router with Curr and send an UpdatedNode message because of it
-    # But this isn't supposed to happen if the new_id is the same as the one in state
+    scaled_state = %__MODULE__{state | fractal_id: new_id} |> scale_state() |> set_up_cruncher()
+    result = Ekser.Result.new(state.job.name, state.points)
+
+    fn curr ->
+      Enum.map(nodes, fn node -> Ekser.Message.Start_Job.new(curr, node, result) end)
+    end
+    |> Ekser.Router.send()
 
     :ok =
       case new_id === state.fractal_id do
@@ -100,16 +135,24 @@ defmodule Ekser.FractalServer do
           :ok
 
         false ->
-          Ekser.NodeStore.update_cluster(state.job_name, new_id)
+          Ekser.NodeStore.update_cluster(state.job.name, new_id)
+          all_nodes = Ekser.NodeStore.get_nodes([])
+          {curr, nodes_without_curr} = Map.pop(all_nodes, :curr)
+
+          receivers =
+            Map.pop(nodes_without_curr, curr.id)
+            |> elem(1)
+            |> Map.values()
 
           fn curr ->
-            Enum.map(nodes, fn node -> Ekser.Message.Start_Job.new(curr, node, state.points) end)
+            Enum.map(receivers, fn receiver ->
+              Ekser.Message.Updated_Node.new(curr, receiver, curr)
+            end)
           end
           |> Ekser.Router.send()
       end
 
-    new_state = %__MODULE__{state | fractal_id: new_id}
-    {:reply, :ok, new_state}
+    {:reply, :ok, scaled_state}
   end
 
   @impl GenServer
@@ -129,10 +172,7 @@ defmodule Ekser.FractalServer do
       clean_list(state)
       |> get_proper_list()
 
-    case state.cruncher do
-      nil -> true
-      _ -> Process.exit(state.cruncher, :shutdown)
-    end
+    stop_cruncher(state.cruncher)
 
     result = Ekser.Result.new(state.job.name, new_points)
 
@@ -143,18 +183,12 @@ defmodule Ekser.FractalServer do
   def handle_call(:stop, _from, _) do
     result = Ekser.Result.new("", [])
 
-    {:reply, result, %__MODULE__{}}
-  end
-
-  @impl GenServer
-  def handle_call(:status, _from, state) when state.job != nil and state.points != nil do
-    status = Ekser.Status.new(state.job.name, state.fractal_id, state.count)
-    {:reply, status, state}
+    {:reply, result, %__MODULE__{count: 0}}
   end
 
   @impl GenServer
   def handle_call(:status, _from, state) when state.job != nil do
-    status = Ekser.Status.new(state.job.name, state.fractal_id, 0)
+    status = Ekser.Status.new(state.job.name, state.fractal_id, state.count)
     {:reply, status, state}
   end
 
@@ -179,9 +213,10 @@ defmodule Ekser.FractalServer do
 
   @impl GenServer
   def handle_info({:DOWN, old_cruncher, _, _, _}, state) do
+    Process.demonitor(old_cruncher)
+
     case old_cruncher === state.cruncher do
       true ->
-        Process.demonitor(old_cruncher)
         cruncher = start_cruncher(state)
         new_state = %__MODULE__{state | cruncher: cruncher}
         {:noreply, new_state}
@@ -191,28 +226,32 @@ defmodule Ekser.FractalServer do
     end
   end
 
-  defp set_up(state) do
+  defp scale_state(state) do
     {scaled_anchors, scaled_points} =
-      case state.fractal_id === "0" do
-        true ->
-          {state.anchors, state.points}
+      Ekser.Point.scale_to_fractal_id(
+        state.job.ratio,
+        state.fractal_id,
+        {state.anchors, state.points}
+      )
 
-        false ->
-          Ekser.Point.scale_to_fractal_id(
-            state.job.ratio,
-            state.fractal_id,
-            {state.anchors, Enum.reverse(state.points)}
-          )
+    set_state(state, scaled_anchors, scaled_points)
+  end
+
+  defp set_state(state, anchors, points) do
+    %__MODULE__{state | anchors: anchors, points: points, count: length(anchors) + length(points)}
+  end
+
+  defp set_up_cruncher(state) do
+    Registry.dispatch(
+      Ekser.AggregateReg,
+      {Ekser.Message.Entered_Cluster, state.job.name},
+      fn entries ->
+        for {pid, _} <- entries,
+            do: GenServer.cast(pid, :clear)
       end
+    )
 
-    new_state = %__MODULE__{
-      state
-      | anchors: scaled_anchors,
-        points: scaled_points,
-        count: length(scaled_anchors) + length(scaled_points)
-    }
-
-    %__MODULE__{new_state | cruncher: start_cruncher(new_state)}
+    %__MODULE__{state | cruncher: start_cruncher(state)}
   end
 
   defp clean_list(state) do
@@ -224,6 +263,8 @@ defmodule Ekser.FractalServer do
   end
 
   defp start_cruncher(state) do
+    stop_cruncher(state.cruncher)
+
     point =
       case length(state.points) do
         0 ->
@@ -241,5 +282,12 @@ defmodule Ekser.FractalServer do
 
     Process.monitor(cruncher)
     cruncher
+  end
+
+  defp stop_cruncher(cruncher) do
+    case cruncher do
+      nil -> true
+      _ -> Process.exit(cruncher, :shutdown)
+    end
   end
 end

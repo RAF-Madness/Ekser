@@ -1,4 +1,5 @@
 defmodule Ekser.Router do
+  require Logger
   require Ekser.TCP
   require Ekser.Node
   require Ekser.RouteTable
@@ -15,6 +16,11 @@ defmodule Ekser.Router do
   @spec update_curr(%Ekser.Node{}) :: :ok
   def update_curr(node) do
     GenServer.call(Ekser.Router, {:curr, node})
+  end
+
+  @spec update_last_id(integer()) :: :ok
+  def update_last_id(id) do
+    GenServer.call(Ekser.Router, {:last_id, id})
   end
 
   @spec introduce_new(%Ekser.Node{}) :: :ok
@@ -82,7 +88,7 @@ defmodule Ekser.Router do
 
   @impl GenServer
   def handle_call({:prev, node}, _from, table) do
-    {:reply, :ok, %Ekser.RouteTable{table | prev: node}}
+    {:reply, :ok, %Ekser.RouteTable{table | prev: node, last_id: node.id}}
   end
 
   @impl GenServer
@@ -97,8 +103,17 @@ defmodule Ekser.Router do
   end
 
   @impl GenServer
+  def handle_call({:last_id, id}, _from, table) do
+    {:reply, :ok, %Ekser.RouteTable{table | last_id: id}}
+  end
+
+  @impl GenServer
   def handle_call({:bootstrap, closure}, _from, table) do
     message = closure.(table.curr, table.bootstrap)
+
+    Logger.info(
+      "Sending #{message.sender.id}|#{message.receiver.id}|#{message.type} to bootstrap"
+    )
 
     dispatch(message, message.receiver, table.curr.id)
 
@@ -107,7 +122,11 @@ defmodule Ekser.Router do
 
   @impl GenServer
   def handle_cast({:forward, message}, table) do
-    {:ok, route_to} = Ekser.RouteTable.get_next(table, message.receiver)
+    {:ok, route_to} = Ekser.RouteTable.get_next(table, message.receiver, message.sender.id)
+
+    Logger.info(
+      "Forwarding #{message.sender.id}|#{message.receiver.id}|#{message.type} to #{route_to.id}"
+    )
 
     dispatch(message, route_to, table.curr.id)
 
@@ -119,7 +138,12 @@ defmodule Ekser.Router do
     message_list = closure.(table.curr)
 
     for message <- message_list do
-      {:ok, route_to} = Ekser.RouteTable.get_next(table, message.receiver)
+      {:ok, route_to} = Ekser.RouteTable.get_next(table, message.receiver, message.sender.id)
+
+      Logger.info(
+        "Sending #{message.sender.id}|#{message.receiver.id}|#{message.type} to #{route_to.id}"
+      )
+
       dispatch(message, route_to, table.curr.id)
     end
 

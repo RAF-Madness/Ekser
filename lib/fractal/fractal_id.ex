@@ -1,6 +1,5 @@
 defmodule Ekser.FractalId do
   def get_next(fractal_id, point_count) do
-    # {base_rep, _} = Integer.parse(fractal_id, point_count)
     base_rep = String.to_integer(fractal_id, point_count)
     new_base_rep = base_rep + 1
 
@@ -19,10 +18,11 @@ defmodule Ekser.FractalId do
 
     overflow? = String.length(newer_string) > String.length(fractal_id)
 
+    concat = &("0" <> &1)
+
     case overflow? do
       true ->
-        dropped = newer_string |> Enum.drop(1)
-        ["0" | dropped]
+        newer_string |> String.slice(1..-1//1) |> concat.()
 
       false ->
         String.pad_leading(newer_string, String.length(fractal_id), "0")
@@ -36,12 +36,10 @@ defmodule Ekser.FractalId do
 
     removed_tail =
       list_other
-      |> Enum.reverse()
-      |> tl()
-      |> Enum.reverse()
+      |> Enum.drop(-1)
 
     with true <- length(list_id) > 0 do
-      (fractal_id === "0" and length(list_other) === 0) or
+      (fractal_id === "0" and length(removed_tail) === 0) or
         removed_tail === list_id
     else
       false -> false
@@ -79,10 +77,10 @@ defmodule Ekser.FractalId do
 
   defp calculate_edit_distance({char1, char2}, acc, value) do
     cond do
-      char1 === char2 and acc === value ->
+      char1 != char2 and acc === value ->
         {:halt, false}
 
-      char1 === char2 ->
+      char1 != char2 ->
         {:cont, acc + 1}
 
       true ->

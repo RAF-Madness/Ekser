@@ -58,6 +58,17 @@ defmodule Ekser.Aggregate do
     :ok
   end
 
+  def register_non_vital() do
+    Registry.register(Ekser.AggregateReg, :non_vital, nil)
+  end
+
+  def close_non_vital() do
+    Registry.dispatch(Ekser.AggregateReg, :non_vital, fn entries ->
+      for {pid, _} <- entries,
+          do: GenServer.call(pid, :stop)
+    end)
+  end
+
   def is_complete?(responses) do
     Enum.all?(Map.values(responses), fn value -> value === true end)
   end
@@ -72,7 +83,7 @@ defmodule Ekser.Aggregate do
   def respond_job(message) do
     Registry.dispatch(Ekser.AggregateReg, {message.type, message.payload.job_name}, fn entries ->
       for {pid, _} <- entries,
-          do: GenServer.call(pid, {:response, message.sender.id, message.payload})
+          do: GenServer.call(pid, {:response, message.payload})
     end)
   end
 end

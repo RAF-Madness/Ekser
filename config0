@@ -6,7 +6,7 @@
     "strongLimit": 1000,
     "jobs": [
         {
-            "name": "triangle",
+            "name": "upside_triangle",
             "pointCount": 3,
             "p": 0.3,
             "width": 200,
@@ -23,6 +23,27 @@
                 {
                     "x": 199,
                     "y": 0
+                }
+            ]
+        },
+        {
+            "name": "triangle",
+            "pointCount": 3,
+            "p": 0.3,
+            "width": 200,
+            "height": 200,
+            "mainPoints": [
+                {
+                    "x": 0,
+                    "y": 199
+                },
+                {
+                    "x": 99,
+                    "y": 99
+                },
+                {
+                    "x": 199,
+                    "y": 199
                 }
             ]
         }

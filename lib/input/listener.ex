@@ -30,10 +30,14 @@ defmodule Ekser.Listener do
   defp listen(socket, curr) do
     {:ok, client} = :gen_tcp.accept(socket)
 
+    own_pid = self()
+
     {:ok, pid} =
-      Task.Supervisor.start_child(Ekser.ReceiverSup, fn -> serve(client, curr, self()) end)
+      Task.Supervisor.start_child(Ekser.ReceiverSup, fn -> serve(client, curr, own_pid) end)
 
     :ok = :gen_tcp.controlling_process(client, pid)
+
+    send(pid, {:ok, nil})
     listen(socket, curr)
   end
 
@@ -43,6 +47,11 @@ defmodule Ekser.Listener do
   end
 
   defp serve(socket, curr, pid) do
+    receive do
+      {:ok, _} ->
+        :ok
+    end
+
     bytes =
       socket
       |> read()
@@ -57,6 +66,8 @@ defmodule Ekser.Listener do
   end
 
   defp process(message, curr, pid) do
+    Logger.info("Got #{message.sender.id}|#{message.receiver.id}|#{message.type}")
+
     case Ekser.Node.same_node?(message.receiver, curr) do
       true -> execute(message, pid)
       false -> Ekser.Router.forward(message)

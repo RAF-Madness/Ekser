@@ -72,8 +72,11 @@ defmodule Ekser.Message do
         payload: payload
       }
     else
-      {false, message} -> {:error, message}
-      {:error, message} -> {:error, message}
+      {false, message} ->
+        {:error, message}
+
+      {:error, message} ->
+        {:error, message}
     end
   end
 

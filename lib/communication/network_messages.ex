@@ -16,6 +16,7 @@ defmodule Ekser.Message.Entered do
   @impl Ekser.Message
   def send_effect(message) do
     Ekser.NodeStore.enter_network(message.payload)
+    Ekser.Router.update_last_id(message.payload.id)
   end
 end
 
@@ -132,7 +133,12 @@ defmodule Ekser.Message.System_Knock do
     map = Ekser.NodeStore.introduce_new()
     jobs = Ekser.JobStore.get_all_jobs()
     dht = Ekser.DHT.new(map.id, map.nodes, jobs)
-    {:send, fn curr -> [Ekser.Message.Welcome.new(curr, message.sender, dht)] end}
+    new_sender = %Ekser.Node{message.sender | id: map.id}
+
+    {:send,
+     fn curr ->
+       [Ekser.Message.Welcome.new(curr, new_sender, dht)]
+     end}
   end
 end
 

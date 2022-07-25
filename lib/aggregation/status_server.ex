@@ -29,13 +29,26 @@ defmodule Ekser.StatusServer do
 
     Ekser.Aggregate.continue_or_exit(responses)
 
+    Ekser.Aggregate.register_non_vital()
+
     initial_results =
       case local_info === nil do
         true -> %{}
         false -> Ekser.Status.get_friendly(local_info)
       end
 
-    try_complete(responses, initial_results, output)
+    case Ekser.Aggregate.is_complete?(responses) do
+      true -> {:noreply, {initial_results, output}, {:continue, :complete}}
+      false -> {:noreply, {responses, initial_results, output}}
+    end
+  end
+
+  @impl GenServer
+  def handle_continue(:complete, {results, output}) do
+    to_print = Ekser.Status.get_status_string(results)
+
+    IO.write(output, to_print)
+    exit(:shutdown)
   end
 
   @impl GenServer
@@ -52,15 +65,8 @@ defmodule Ekser.StatusServer do
 
   defp try_complete(responses, results, output) do
     case Ekser.Aggregate.is_complete?(responses) do
-      true -> complete(results, output)
-      false -> {:noreply, {responses, results, output}}
+      true -> {:reply, :ok, {results, output}, {:continue, :complete}}
+      false -> {:reply, :ok, {responses, results, output}}
     end
-  end
-
-  defp complete(results, output) do
-    to_print = Ekser.Status.get_status_string(results)
-
-    IO.write(output, to_print)
-    exit(:shutdown)
   end
 end

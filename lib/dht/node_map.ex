@@ -17,7 +17,9 @@ defmodule Ekser.NodeMap do
     neighbours =
       new_nodes
       |> Map.filter(fn {_, node} ->
-        Ekser.FractalId.compare_edit_distance(new_nodes.curr.fractal_id, node.fractal_id, 1) === 1
+        node.job_name === new_nodes.curr.job_name and
+          Ekser.FractalId.compare_edit_distance(new_nodes.curr.fractal_id, node.fractal_id, 1) ===
+            1
       end)
 
     {neighbours, new_nodes}
@@ -32,7 +34,7 @@ defmodule Ekser.NodeMap do
     |> length()
   end
 
-  def get_next_fractal_id(nodes) do
+  def get_next_fractal_id(nodes, node) do
     job = Ekser.JobStore.get_job_by_name(nodes.curr.job_name)
 
     case job do
@@ -56,7 +58,10 @@ defmodule Ekser.NodeMap do
           |> Enum.reverse()
           |> Enum.take(1)
 
-        Ekser.FractalId.get_next(top_id, job.count)
+        fractal_id = Ekser.FractalId.get_next(top_id, job.count)
+        new_node = %Ekser.Node{node | job_name: job.name, fractal_id: fractal_id}
+
+        {fractal_id, %{nodes | node.id => new_node}}
     end
   end
 

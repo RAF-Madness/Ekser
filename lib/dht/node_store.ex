@@ -59,8 +59,8 @@ defmodule Ekser.NodeStore do
     Agent.update(__MODULE__, Ekser.NodeMap, :update_curr_fractal, [job_name, fractal_id])
   end
 
-  @spec get_next_fractal_id() :: String.t() | :error
-  def get_next_fractal_id() do
-    Agent.get(__MODULE__, Ekser.NodeMap, :get_next_fractal_id, [])
+  @spec get_next_fractal_id(%Ekser.Node{}) :: String.t() | :error
+  def get_next_fractal_id(node) do
+    Agent.get_and_update(__MODULE__, Ekser.NodeMap, :get_next_fractal_id, [node])
   end
 end

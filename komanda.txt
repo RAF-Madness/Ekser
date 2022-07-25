@@ -1,0 +1,7 @@
+mix run --no-halt -- "empty.exs" config0
+mix run --no-halt -- "empty.exs" config1
+mix run --no-halt -- "empty.exs" config2
+mix run --no-halt -- "empty.exs" config3
+mix run --no-halt -- "empty.exs" config4
+mix run --no-halt -- "empty.exs" config5
+mix run --no-halt -- "empty.exs" config6

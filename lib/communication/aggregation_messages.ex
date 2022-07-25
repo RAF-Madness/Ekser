@@ -15,7 +15,7 @@ defmodule Ekser.Message.Start_Job do
 
   @impl Ekser.Message
   def send_effect(message) do
-    Ekser.Aggregate.respond(message)
+    Ekser.FractalServer.start_job(message.payload.points)
   end
 end
 

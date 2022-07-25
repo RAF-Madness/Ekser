@@ -48,6 +48,13 @@ defmodule Ekser.Node do
   end
 end
 
+defimpl String.Chars, for: Ekser.Node do
+  def to_string(node) do
+    string_ip = Ekser.TCP.to_ip(node.ip)
+    "Node #{node.id} at #{string_ip}:#{node.port}"
+  end
+end
+
 defimpl Jason.Encoder, for: Ekser.Node do
   def encode(value, opts) do
     map = %{

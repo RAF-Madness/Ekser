@@ -8,15 +8,22 @@ defmodule Ekser.RouteTable do
     :curr,
     :prev,
     :next,
-    cluster_neighbours: []
+    cluster_neighbours: [],
+    last_id: 0
   ]
 
-  @spec get_next(%__MODULE__{}, %Ekser.Node{}) ::
+  @spec get_next(%__MODULE__{}, %Ekser.Node{}, integer()) ::
           {:ok, %Ekser.Node{}} | {:error, String.t()}
-  def get_next(table, receiver) do
+  def get_next(table, receiver, sender_id) do
+    last_id =
+      case sender_id > table.last_id do
+        true -> 0
+        false -> table.last_id
+      end
+
     best_node =
       extract_neighbours(table)
-      |> Stream.map(fn node -> {node, get_min_distance(node, receiver)} end)
+      |> Stream.map(fn node -> {node, get_min_distance(node, receiver, last_id)} end)
       |> Enum.reduce_while(:error, fn element, acc -> least_hoops(element, acc) end)
 
     case best_node do
@@ -50,8 +57,18 @@ defmodule Ekser.RouteTable do
     end
   end
 
-  defp get_min_distance(node, element) do
-    chain_distance = abs(node.id - element.id)
+  defp get_min_distance(node, element, last_id) do
+    chain_distance =
+      case last_id > 0 do
+        true ->
+          min(
+            abs(node.id - element.id),
+            last_id + 1 - max(node.id, element.id) + min(node.id, element.id)
+          )
+
+        false ->
+          abs(node.id - element.id)
+      end
 
     with true <- node.job_name != "",
          true <- node.job_name === element.job_name,
